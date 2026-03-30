@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelApp.EditProfilePage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#F4F4F6">
+
+    <Grid RowDefinitions="Auto,*">
+        <Grid BackgroundColor="#E31667" Padding="16,48,16,16" ColumnDefinitions="40,*,40">
+            <Button Text="←"
+                    Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="White"
+                    FontSize="26"
+                    Padding="0" />
+
+            <Label Grid.Column="1"
+                   Text="Edit Profile"
+                   TextColor="White"
+                   FontAttributes="Bold"
+                   FontSize="30"
+                   HorizontalTextAlignment="Center"
+                   VerticalTextAlignment="Center" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="18,18,18,26" Spacing="16">
+                <Label FontSize="16" TextColor="#76767E">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="Email Address " />
+                            <Span Text="*" TextColor="#D11A5B" />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
+
+                <Border Stroke="#CFCFD7"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 24"
+                        BackgroundColor="White"
+                        Padding="16,0"
+                        HeightRequest="60">
+                    <Entry Text="{Binding Email}"
+                           Placeholder="your@email.com"
+                           PlaceholderColor="#7C7C84"
+                           FontSize="18"
+                           VerticalOptions="Center" />
+                </Border>
+
+                <Label FontSize="16" TextColor="#76767E" Margin="0,8,0,0">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="Full name " />
+                            <Span Text="*" TextColor="#D11A5B" />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
+
+                <Border Stroke="#CFCFD7"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 24"
+                        BackgroundColor="White"
+                        Padding="16,0"
+                        HeightRequest="60">
+                    <Entry Text="{Binding FullName}"
+                           Placeholder="Your full name"
+                           PlaceholderColor="#7C7C84"
+                           FontSize="18"
+                           VerticalOptions="Center" />
+                </Border>
+
+                <Label Text="Mobile number"
+                       FontSize="16"
+                       TextColor="#76767E"
+                       Margin="0,8,0,0" />
+
+                <Border Stroke="#7F7F87"
+                        StrokeThickness="2"
+                        StrokeShape="RoundRectangle 24"
+                        BackgroundColor="White"
+                        Padding="14,0"
+                        HeightRequest="64">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                        <Label Text="🇦🇪"
+                               FontSize="22"
+                               VerticalTextAlignment="Center" />
+
+                        <Entry Grid.Column="1"
+                               Text="{Binding CountryCode}"
+                               WidthRequest="60"
+                               FontSize="16"
+                               Keyboard="Telephone"
+                               VerticalOptions="Center" />
+
+                        <Label Grid.Column="2"
+                               Text="▾"
+                               FontSize="18"
+                               TextColor="#666"
+                               VerticalTextAlignment="Center" />
+
+                        <Entry Grid.Column="3"
+                               Text="{Binding PhoneNumber}"
+                               Placeholder="Phone number"
+                               PlaceholderColor="#7C7C84"
+                               FontSize="18"
+                               Keyboard="Telephone"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Button Text="Update Profile"
+                        Command="{Binding UpdateProfileCommand}"
+                        IsEnabled="{Binding IsUpdateEnabled}"
+                        BackgroundColor="{Binding UpdateButtonColor}"
+                        TextColor="White"
+                        FontSize="21"
+                        FontAttributes="Bold"
+                        HeightRequest="62"
+                        CornerRadius="31"
+                        Margin="0,24,0,0" />
+
+                <Label Text="Delete account"
+                       TextColor="#C91458"
+                       FontSize="22"
+                       TextDecorations="Underline"
+                       HorizontalOptions="Center"
+                       Margin="0,28,0,0">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding DeleteAccountCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

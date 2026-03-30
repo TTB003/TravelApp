@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelApp.SearchPage"
+             BackgroundColor="White"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <Grid Padding="16,48,16,12" ColumnDefinitions="40,*,40">
+            <Button Text="✕"
+                    Command="{Binding BackCommand}"
+                    FontSize="20"
+                    TextColor="Black"
+                    BackgroundColor="Transparent"
+                    Padding="0" />
+
+            <Label Grid.Column="1"
+                   Text="Search"
+                   FontSize="22"
+                   HorizontalTextAlignment="Center"
+                   VerticalTextAlignment="Center" />
+
+            <Button Grid.Column="2"
+                    Text="☷"
+                    Command="{Binding OpenFilterCommand}"
+                    FontSize="22"
+                    TextColor="#C2185B"
+                    BackgroundColor="Transparent"
+                    Padding="0" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16,4,16,12" Spacing="14">
+                <Border Stroke="Black"
+                        StrokeThickness="2"
+                        StrokeShape="RoundRectangle 24"
+                        HeightRequest="58"
+                        Padding="14,0">
+                    <Grid ColumnDefinitions="*,46">
+                        <Entry Placeholder="Explore destinations"
+                               PlaceholderColor="#9A9AA0"
+                               FontSize="18"
+                               BackgroundColor="Transparent"
+                               VerticalOptions="Center" />
+
+                        <Border Grid.Column="1"
+                                StrokeThickness="0"
+                                BackgroundColor="#D81B60"
+                                StrokeShape="RoundRectangle 22"
+                                WidthRequest="40"
+                                HeightRequest="40"
+                                HorizontalOptions="Center"
+                                VerticalOptions="Center">
+                            <Label Text="⌕"
+                                   TextColor="White"
+                                   FontSize="20"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Label Text="Popular Destinations"
+                       FontSize="20"
+                       FontAttributes="Bold" />
+
+                <CollectionView ItemsSource="{Binding PopularDestinations}" SelectionMode="None">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 18" HeightRequest="130">
+                                <Grid>
+                                    <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
+                                    <BoxView Color="#40000000" />
+                                    <Grid Padding="16,12" RowDefinitions="*,Auto" ColumnDefinitions="*,Auto">
+                                        <Label Text="{Binding Name}" TextColor="White" FontSize="38" FontAttributes="Bold" VerticalOptions="End" />
+                                        <Label Grid.Column="1" Text="›" TextColor="White" FontSize="36" VerticalOptions="End" />
+                                        <HorizontalStackLayout Grid.Row="1" Spacing="8">
+                                            <Border StrokeThickness="0" BackgroundColor="#66FFFFFF" StrokeShape="RoundRectangle 8" Padding="8,2">
+                                                <Label Text="{Binding Type}" TextColor="White" FontSize="12" FontAttributes="Bold" />
+                                            </Border>
+                                            <Label Text="◎" TextColor="White" FontSize="12" VerticalTextAlignment="Center" />
+                                            <Label Text="{Binding Count}" TextColor="White" FontSize="14" VerticalTextAlignment="Center" />
+                                        </HorizontalStackLayout>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Filter Overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsFilterOpen}" InputTransparent="False">
+            <BoxView Color="#6F000000" />
+
+            <Border VerticalOptions="Start"
+                    Margin="0,90,0,0"
+                    BackgroundColor="White"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 24,24,0,0"
+                    Padding="0,14,0,20">
+                <ScrollView>
+                    <VerticalStackLayout Padding="16,0" Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" Padding="8,0,8,0">
+                            <Label Text="Filter" FontSize="22" FontAttributes="Bold" />
+                            <Button Grid.Column="1"
+                                    Text="✕"
+                                    Command="{Binding CloseFilterCommand}"
+                                    FontSize="22"
+                                    BackgroundColor="Transparent"
+                                    Padding="0" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="#ECECEF" />
+
+                        <Grid ColumnDefinitions="*,Auto" Padding="8,6">
+                            <Label Text="★   Popular and most rated guides"
+                                   FontSize="16"
+                                   TextColor="#6D6D76" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding PopularMostRated}"
+                                    OnColor="#D81B60" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="#ECECEF" />
+
+                        <Grid ColumnDefinitions="*,Auto" Padding="8,6">
+                            <Label Text="▲   Filter by category"
+                                   FontSize="16"
+                                   TextColor="#6D6D76" />
+                            <Label Grid.Column="1" Text="⌃" TextColor="#D81B60" FontSize="20" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" Padding="18,2">
+                            <Label Text="Tour" FontSize="16" TextColor="#333" />
+                            <Switch Grid.Column="1" IsToggled="{Binding TourEnabled}" OnColor="#D81B60" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" Padding="18,2">
+                            <Label Text="Museum" FontSize="16" TextColor="#333" />
+                            <Switch Grid.Column="1" IsToggled="{Binding MuseumEnabled}" OnColor="#D81B60" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" Padding="18,2">
+                            <Label Text="Quest" FontSize="16" TextColor="#333" />
+                            <Switch Grid.Column="1" IsToggled="{Binding QuestEnabled}" OnColor="#D81B60" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="#ECECEF" />
+
+                        <Label Text="🅰   Filter by tour type"
+                               FontSize="16"
+                               TextColor="#6D6D76"
+                               Padding="8,4" />
+
+                        <CollectionView ItemsSource="{Binding TourTypes}" SelectionMode="None" HeightRequest="250">
+                            <CollectionView.ItemsLayout>
+                                <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="10" VerticalItemSpacing="10" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Stroke="#D81B60" StrokeThickness="1.5" StrokeShape="RoundRectangle 24" Padding="14,10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="{Binding Name}" FontSize="14" TextColor="#2C2C33" />
+                                            <Label Grid.Column="1" Text="✓" TextColor="#D81B60" FontSize="18">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="False">
+                                                        <Setter Property="Text" Value="" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                        </Grid>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleTourTypeCommand}"
+                                                                  CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Button Text="Filter"
+                                Command="{Binding ApplyFilterCommand}"
+                                BackgroundColor="#E31667"
+                                TextColor="White"
+                                FontSize="18"
+                                CornerRadius="28"
+                                HeightRequest="56"
+                                Margin="40,6,40,0" />
+
+                        <Button Text="Clear filters"
+                                Command="{Binding ClearFiltersCommand}"
+                                BackgroundColor="Transparent"
+                                TextColor="#202025"
+                                FontSize="16"
+                                Margin="0,-4,0,6" />
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Border>
+        </Grid>
+
+    </Grid>
+
+</ContentPage>

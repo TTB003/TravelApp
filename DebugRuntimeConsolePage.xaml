@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelApp.DebugRuntimeConsolePage"
+             Title="Debug Runtime Console"
+             BackgroundColor="Black">
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="12">
+        <HorizontalStackLayout Spacing="10">
+            <Label Text="Debug mode"
+                   TextColor="White"
+                   VerticalTextAlignment="Center" />
+            <Switch x:Name="DebugModeSwitch" />
+            <Button Text="Clear"
+                    Clicked="OnClearClicked"
+                    BackgroundColor="#333333"
+                    TextColor="White"
+                    Padding="10,4" />
+        </HorizontalStackLayout>
+
+        <Label Grid.Row="1"
+               x:Name="StatusLabel"
+               Margin="0,6,0,6"
+               TextColor="#A8D8FF"
+               FontSize="12" />
+
+        <CollectionView x:Name="LogsCollectionView"
+                        Grid.Row="2"
+                        ItemsSource="{Binding LogLines}"
+                        SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Label Text="{Binding}"
+                           TextColor="#D8FFD8"
+                           FontSize="12"
+                           LineBreakMode="WordWrap" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+
+</ContentPage>

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelApp.SignUpPage"
+             BackgroundColor="#F4F4F5"
+             Shell.NavBarIsVisible="False">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="28,56,28,28" Spacing="22">
+            <Button Text="✕"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    FontSize="28"
+                    BackgroundColor="Transparent"
+                    TextColor="#121212"
+                    Padding="0" />
+
+            <VerticalStackLayout Spacing="8" Margin="0,20,0,0">
+                <Label Text="Sign Up"
+                       FontSize="44"
+                       FontAttributes="Bold"
+                       TextColor="#17171C" />
+                <Label Text="Enjoy the free audio guided tours with ease and redeem the credits for paid tours."
+                       FontSize="18"
+                       TextColor="#3A3A40" />
+            </VerticalStackLayout>
+
+            <Border Stroke="#8A8A93"
+                    StrokeThickness="2"
+                    StrokeShape="RoundRectangle 26"
+                    BackgroundColor="Transparent"
+                    HeightRequest="64"
+                    Padding="18,0"
+                    Margin="0,10,0,0">
+                <Entry Placeholder="E-mail *"
+                       Text="{Binding Email}"
+                       FontSize="18"
+                       TextColor="#1C1C22"
+                       PlaceholderColor="#6D6D75"
+                       VerticalOptions="Center" />
+            </Border>
+
+            <Border Stroke="#8A8A93"
+                    StrokeThickness="2"
+                    StrokeShape="RoundRectangle 26"
+                    BackgroundColor="Transparent"
+                    HeightRequest="64"
+                    Padding="18,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Entry Placeholder="Password *"
+                           Text="{Binding Password}"
+                           IsPassword="{Binding IsPasswordHidden}"
+                           FontSize="18"
+                           TextColor="#1C1C22"
+                           PlaceholderColor="#6D6D75"
+                           VerticalOptions="Center" />
+
+                    <Button Grid.Column="1"
+                            Command="{Binding TogglePasswordVisibilityCommand}"
+                            BackgroundColor="Transparent"
+                            TextColor="#8A8A93"
+                            FontSize="18"
+                            Padding="0,0,4,0"
+                            WidthRequest="56">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button"
+                                         Binding="{Binding IsPasswordHidden}"
+                                         Value="True">
+                                <Setter Property="Text" Value="Show" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Button"
+                                         Binding="{Binding IsPasswordHidden}"
+                                         Value="False">
+                                <Setter Property="Text" Value="Hide" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Border Stroke="#8A8A93"
+                    StrokeThickness="2"
+                    StrokeShape="RoundRectangle 26"
+                    BackgroundColor="Transparent"
+                    HeightRequest="64"
+                    Padding="18,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Entry Placeholder="Confirm password *"
+                           Text="{Binding ConfirmPassword}"
+                           IsPassword="{Binding IsConfirmPasswordHidden}"
+                           FontSize="18"
+                           TextColor="#1C1C22"
+                           PlaceholderColor="#6D6D75"
+                           VerticalOptions="Center" />
+
+                    <Button Grid.Column="1"
+                            Command="{Binding ToggleConfirmPasswordVisibilityCommand}"
+                            BackgroundColor="Transparent"
+                            TextColor="#8A8A93"
+                            FontSize="18"
+                            Padding="0,0,4,0"
+                            WidthRequest="56">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button"
+                                         Binding="{Binding IsConfirmPasswordHidden}"
+                                         Value="True">
+                                <Setter Property="Text" Value="Show" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Button"
+                                         Binding="{Binding IsConfirmPasswordHidden}"
+                                         Value="False">
+                                <Setter Property="Text" Value="Hide" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Label FontSize="16" TextColor="#2A2A31">
+                <Label.FormattedText>
+                    <FormattedString>
+                        <Span Text="By signing up, I agree with " />
+                        <Span Text="Terms of Service" TextColor="#2A7DB3" TextDecorations="Underline" />
+                        <Span Text=" and " />
+                        <Span Text="Privacy statement" TextColor="#2A7DB3" TextDecorations="Underline" />
+                    </FormattedString>
+                </Label.FormattedText>
+            </Label>
+
+            <Button Text="Sign Up"
+                    Command="{Binding SignUpCommand}"
+                    IsEnabled="{Binding IsSignUpEnabled}"
+                    BackgroundColor="#E31667"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    FontSize="20"
+                    HeightRequest="64"
+                    CornerRadius="32"
+                    Margin="0,4,0,0" />
+
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
+                <Label Text="Have an account?"
+                       FontSize="18"
+                       TextColor="#1F1F24" />
+                <Label Text="Login"
+                       FontSize="18"
+                       TextColor="#D51963"
+                       FontAttributes="Bold">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenLoginCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
