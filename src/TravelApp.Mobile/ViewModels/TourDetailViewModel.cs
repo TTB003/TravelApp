@@ -55,10 +55,11 @@ public class TourDetailViewModel : INotifyPropertyChanged
             // reload POI content and stories in the new language
             if (_currentPoiId != 0)
             {
-                // cancel previous reload if any
+                // cancel previous reload if any and start a fresh reload that will also trigger TTS
                 _reloadCts?.Cancel();
                 _reloadCts = new CancellationTokenSource();
-                _ = LoadAsync(_currentPoiId);
+                var ct = _reloadCts.Token;
+                _ = ReloadForLanguageAsync(_currentPoiId, ct);
             }
         }
     }
@@ -132,14 +133,43 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private async Task LoadAsync(int id)
     {
         _currentPoiId = id;
+        await ReloadForLanguageAsync(id, CancellationToken.None);
+    }
+
+    private async Task ReloadForLanguageAsync(int id, CancellationToken cancellationToken)
+    {
         try
         {
-            var dto = await _poiService.GetByIdAsync(id, SelectedLanguage);
+            var dto = await _poiService.GetByIdAsync(id, SelectedLanguage, cancellationToken);
             if (dto is not null)
             {
                 Tour = MapPoi(dto);
-                // update Stories collection for binding
                 UpdateStories(dto);
+
+                // After data refreshed, play first story description via TTS (if available)
+                try
+                {
+                    var first = Stories.FirstOrDefault();
+                    if (first is not null && !string.IsNullOrWhiteSpace(first.Content))
+                    {
+                        // Do not await to avoid blocking UI; allow cancellation token to stop playback if needed
+                        // Prefer AudioUrl if available; otherwise use TTS on Description
+                        if (!string.IsNullOrWhiteSpace(first.AudioUrl))
+                        {
+                            // If audio url existed we would hand over to AudioService; here we fallback to TTS since audio playback service is separate
+                            _ = _ttsService.PlayTextAsync(first.Description ?? first.Content, SelectedLanguage, cancellationToken);
+                        }
+                        else
+                        {
+                            _ = _ttsService.PlayTextAsync(first.Description ?? first.Content, SelectedLanguage, cancellationToken);
+                        }
+                    }
+                }
+                catch
+                {
+                    // swallow TTS errors to avoid crashing UI
+                }
+
                 return;
             }
         }
@@ -165,7 +195,9 @@ public class TourDetailViewModel : INotifyPropertyChanged
             {
                 Title = s.Title,
                 Content = s.Content,
-                LanguageCode = s.LanguageCode
+                LanguageCode = s.LanguageCode,
+                AudioUrl = s is { } ? s.AudioUrl : null,
+                Description = s is { } ? s.Content : string.Empty
             });
         }
     }

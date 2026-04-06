@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TravelApp.Application.Abstractions.Pois;
 using TravelApp.Application.Dtos.Pois;
-using TravelApp.Application.Dtos.Pois;
 using TravelApp.Domain.Entities;
 using TravelApp.Infrastructure.Persistence;
 
@@ -156,7 +155,6 @@ public class PoiQueryService : IPoiQueryService
             if (!hasLocalization || !hasStories)
             {
                 // perform translation where needed
-                var translationService = _dbContext.GetService<TravelApp.Application.Abstractions.ITranslationService>();
                 // translate title/subtitle/description if missing
                 if (!hasLocalization)
                 {
@@ -182,7 +180,7 @@ public class PoiQueryService : IPoiQueryService
                     foreach (var s in storiesToTranslate)
                     {
                         var tTitle = await _translationService.TranslateTextAsync(s.Title, requestedLanguage, cancellationToken) ?? s.Title;
-                        var tContent = await _translation_service.TranslateTextAsync(s.Content, requestedLanguage, cancellationToken) ?? s.Content;
+                        var tContent = await _translationService.TranslateTextAsync(s.Content, requestedLanguage, cancellationToken) ?? s.Content;
                         var newStory = new Domain.Entities.PoiStory
                         {
                             PoiId = poi.Id,

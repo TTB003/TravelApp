@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -7,13 +8,13 @@ namespace TravelApp.Infrastructure.Services.Translation;
 
 public class GoogleTranslationService : ITranslationService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
     private readonly ILogger<GoogleTranslationService> _logger;
 
-    public GoogleTranslationService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<GoogleTranslationService> logger)
+    public GoogleTranslationService(HttpClient httpClient, IConfiguration configuration, ILogger<GoogleTranslationService> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _httpClient = httpClient;
         _configuration = configuration;
         _logger = logger;
     }
@@ -32,7 +33,6 @@ public class GoogleTranslationService : ITranslationService
 
         try
         {
-            var client = _httpClientFactory.CreateClient();
             var requestUrl = $"https://translation.googleapis.com/language/translate/v2?key={Uri.EscapeDataString(apiKey)}";
             var payload = new
             {
@@ -41,7 +41,7 @@ public class GoogleTranslationService : ITranslationService
                 format = "text"
             };
 
-            var response = await client.PostAsJsonAsync(requestUrl, payload, cancellationToken);
+            var response = await _httpClient.PostAsJsonAsync(requestUrl, payload, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Google Translate returned status {Status}", response.StatusCode);

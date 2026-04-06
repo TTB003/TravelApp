@@ -33,7 +33,10 @@ public class PoiStoryDto
     public int Id { get; set; }
     public string LanguageCode { get; set; } = "en";
     public string Title { get; set; } = string.Empty;
+    // Content holds original text; Description used for TTS-ready content on mobile
     public string Content { get; set; } = string.Empty;
+    public string? AudioUrl { get; set; }
+    public string Description { get; set; } = string.Empty;
     public int OrderIndex { get; set; }
 }
 

@@ -35,6 +35,8 @@ public class PoiStoryDto
     public string LanguageCode { get; set; } = "en";
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    public string? AudioUrl { get; set; }
+    public string Description { get; set; } = string.Empty;
     public int OrderIndex { get; set; }
 }
 

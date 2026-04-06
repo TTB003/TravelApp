@@ -9,10 +9,12 @@ namespace TravelApp.Api.Controllers;
 public class PoisController : ControllerBase
 {
     private readonly IPoiQueryService _poiQueryService;
+    private readonly TravelApp.Application.Abstractions.ITranslationService _translationService;
 
-    public PoisController(IPoiQueryService poiQueryService)
+    public PoisController(IPoiQueryService poiQueryService, TravelApp.Application.Abstractions.ITranslationService translationService)
     {
         _poiQueryService = poiQueryService;
+        _translationService = translationService;
     }
 
     [HttpGet]
@@ -46,6 +48,57 @@ public class PoisController : ControllerBase
         if (result is null)
         {
             return NotFound();
+        }
+
+        // If client requested a language (lang) and it's not Vietnamese, translate Title and Description on-the-fly
+        var target = string.IsNullOrWhiteSpace(languageCode) ? null : languageCode.Trim().ToLowerInvariant();
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(target) && !string.Equals(target, "vi", StringComparison.OrdinalIgnoreCase))
+            {
+                // translate Title and Description from Vietnamese to target language if present
+                if (!string.IsNullOrWhiteSpace(result.Title))
+                {
+                    var t = await _translationService.TranslateTextAsync(result.Title, target, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(t)) result.Title = t;
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.Description))
+                {
+                    var t = await _translationService.TranslateTextAsync(result.Description, target, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(t)) result.Description = t;
+                }
+
+                // Also translate stories descriptions and titles on-the-fly
+                if (result.Stories is not null)
+                {
+                    foreach (var s in result.Stories)
+                    {
+                        try
+                        {
+                            if (!string.IsNullOrWhiteSpace(s.Title))
+                            {
+                                var tt = await _translationService.TranslateTextAsync(s.Title, target, cancellationToken);
+                                if (!string.IsNullOrWhiteSpace(tt)) s.Title = tt;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(s.Description))
+                            {
+                                var tt = await _translationService.TranslateTextAsync(s.Description, target, cancellationToken);
+                                if (!string.IsNullOrWhiteSpace(tt)) s.Description = tt;
+                            }
+                        }
+                        catch
+                        {
+                            // swallow per-story translation errors and continue
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // translation failed — return original Vietnamese data as fallback
         }
 
         return Ok(result);

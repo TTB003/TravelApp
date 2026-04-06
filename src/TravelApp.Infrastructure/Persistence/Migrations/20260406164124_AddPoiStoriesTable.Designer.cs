@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TravelApp.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TravelApp.Infrastructure.Persistence;
 namespace TravelApp.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(TravelAppDbContext))]
-    partial class TravelAppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260406164124_AddPoiStoriesTable")]
+    partial class AddPoiStoriesTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
