@@ -57,6 +57,11 @@
                                    HorizontalTextAlignment="Center"
                                    VerticalTextAlignment="Center" />
                         </Border>
+
+        <!-- Loading overlay -->
+        <Grid Grid.RowSpan="3" IsVisible="{Binding IsLoading}" BackgroundColor="#80000000">
+            <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" VerticalOptions="Center" HorizontalOptions="Center" Color="White" WidthRequest="48" HeightRequest="48" />
+        </Grid>
                     </Grid>
                 </Border>
 
@@ -205,6 +210,13 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
+
+                <Label Text="{Binding StatusMessage}"
+                       FontSize="14"
+                       TextColor="#C2185B"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       Margin="0,6" />
 
                 <Label Text="Editor&apos;s choice"
                        FontSize="18"

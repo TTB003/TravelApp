@@ -13,8 +13,10 @@ public class TravelBootstrapService : ITravelBootstrapService
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(2);
 
     private readonly IPoiApiClient _poiApiClient;
+    private readonly ILocalDatabaseService _localDatabase;
     private readonly ILocationProvider _locationProvider;
     private readonly ITravelRuntimePipeline _travelRuntimePipeline;
+    private readonly IPoiApiService _poiApiService;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<TravelBootstrapService> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -27,13 +29,17 @@ public class TravelBootstrapService : ITravelBootstrapService
 
     public TravelBootstrapService(
         IPoiApiClient poiApiClient,
+        IPoiApiService poiApiService,
         ILocationProvider locationProvider,
         ITravelRuntimePipeline travelRuntimePipeline,
+        ILocalDatabaseService localDatabase,
         TimeProvider timeProvider,
         ILogger<TravelBootstrapService> logger)
     {
         _poiApiClient = poiApiClient;
+        _poiApiService = poiApiService;
         _locationProvider = locationProvider;
+        _localDatabase = localDatabase;
         _travelRuntimePipeline = travelRuntimePipeline;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -63,6 +69,20 @@ public class TravelBootstrapService : ITravelBootstrapService
             await _travelRuntimePipeline.StartAsync(pois, cancellationToken);
             _isStarted = true;
             _logger.LogInformation("Travel bootstrap: started runtime with {PoiCount} nearby POIs.", pois.Count);
+
+            // Kick off background sync to refresh local cache from API
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _poiApiService.GetPoisAsync(location.Latitude, location.Longitude, NearbyRadiusMeters, languageCode, 1, 200, CancellationToken.None);
+                    _logger.LogInformation("Travel bootstrap: background cache sync complete.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Travel bootstrap: background cache sync failed.");
+                }
+            });
         }
         finally
         {
@@ -103,16 +123,47 @@ public class TravelBootstrapService : ITravelBootstrapService
         {
             var query = new NearbyPoiQueryDto(location.Latitude, location.Longitude, NearbyRadiusMeters);
             pois = await _poiApiClient.GetNearbyAsync(query, languageCode, cancellationToken);
+
+            // Save snapshot of nearby POIs to local database for offline use
+            try
+            {
+                var mobilePois = pois.Select(MapToMobilePoi).ToList();
+                await _localDatabase.SavePoisAsync(mobilePois, CancellationToken.None);
+                _logger.LogDebug("Travel bootstrap: saved {Count} nearby POIs to local cache.", mobilePois.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Travel bootstrap: failed to save nearby POIs to local cache.");
+            }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Travel bootstrap: failed to fetch nearby POIs from API.");
-            pois = _cachedPois ?? [];
+
+            // Try to load last-known nearby POIs from local cache when offline
+            try
+            {
+                var offline = await _localDatabase.GetPoisAsync(languageCode, location.Latitude, location.Longitude, NearbyRadiusMeters, cancellationToken);
+                if (offline is not null && offline.Count > 0)
+                {
+                    pois = offline.Select(MapFromMobilePoi).ToList();
+                    _logger.LogInformation("Travel bootstrap: loaded {Count} nearby POIs from local cache.", pois.Count);
+                }
+                else
+                {
+                    pois = _cachedPois ?? [];
+                }
+            }
+            catch (Exception dbEx)
+            {
+                _logger.LogDebug(dbEx, "Travel bootstrap: failed to read nearby POIs from local cache.");
+                pois = _cachedPois ?? [];
+            }
         }
 
         if (pois.Count == 0)
         {
-            pois = [CreateDemoPoiNear(location, languageCode)];
+            pois = new[] { CreateDemoPoiNear(location, languageCode) };
             _logger.LogInformation("Travel bootstrap: using demo POI fallback for runtime flow.");
         }
 
@@ -122,7 +173,56 @@ public class TravelBootstrapService : ITravelBootstrapService
         _cachedLanguage = languageCode;
 
         return pois;
+
     }
+
+    private static TravelApp.Models.Contracts.PoiMobileDto MapToMobilePoi(PoiDto src)
+    {
+        return new TravelApp.Models.Contracts.PoiMobileDto
+        {
+            Id = src.Id,
+            Title = src.Title,
+            Subtitle = src.Subtitle,
+            Description = src.Description ?? string.Empty,
+            LanguageCode = src.PrimaryLanguage ?? "en",
+            PrimaryLanguage = src.PrimaryLanguage ?? "en",
+            ImageUrl = src.ImageUrl ?? string.Empty,
+            Location = src.Location ?? string.Empty,
+            Latitude = src.Latitude,
+            Longitude = src.Longitude,
+            GeofenceRadiusMeters = src.GeofenceRadiusMeters ?? 100,
+            Category = src.Category ?? string.Empty,
+            AudioAssets = src.AudioAssets?.Select(a => new TravelApp.Models.Contracts.PoiAudioMobileDto
+            {
+                Id = 0,
+                LanguageCode = a.LanguageCode ?? "en",
+                AudioUrl = a.AudioUrl,
+                Transcript = a.Transcript,
+                IsGenerated = a.IsGenerated
+            }).ToList() ?? new List<TravelApp.Models.Contracts.PoiAudioMobileDto>()
+        };
+    }
+
+    private static PoiDto MapFromMobilePoi(TravelApp.Models.Contracts.PoiMobileDto src)
+    {
+        return new PoiDto
+        {
+            Id = src.Id,
+            Title = src.Title,
+            Subtitle = src.Subtitle,
+            ImageUrl = src.ImageUrl,
+            Location = src.Location,
+            Latitude = src.Latitude,
+            Longitude = src.Longitude,
+            GeofenceRadiusMeters = src.GeofenceRadiusMeters,
+            PrimaryLanguage = src.PrimaryLanguage,
+            Description = src.Description,
+            Category = src.Category,
+            AudioAssets = src.AudioAssets?.Select(a => new PoiAudioDto(a.LanguageCode, a.AudioUrl, a.Transcript, a.IsGenerated)).ToList() ?? new List<PoiAudioDto>()
+        };
+    }
+
+
 
     private bool CanReuseCache(LocationSample location, string? languageCode)
     {

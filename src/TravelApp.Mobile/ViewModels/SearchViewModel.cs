@@ -2,6 +2,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using TravelApp.Services.Abstractions;
+using Microsoft.Maui.ApplicationModel;
+using TravelApp.Services;
 
 namespace TravelApp.ViewModels;
 
@@ -15,6 +18,8 @@ public class SearchViewModel : INotifyPropertyChanged
 
     public ObservableCollection<SearchDestinationItem> PopularDestinations { get; }
     public ObservableCollection<TourTypeOption> TourTypes { get; }
+
+    private readonly IPoiApiClient _poiApiClient;
 
     public bool IsFilterOpen
     {
@@ -78,15 +83,10 @@ public class SearchViewModel : INotifyPropertyChanged
     public ICommand ClearFiltersCommand { get; }
     public ICommand ToggleTourTypeCommand { get; }
 
-    public SearchViewModel()
+    public SearchViewModel(IPoiApiClient poiApiClient)
     {
-        PopularDestinations = new ObservableCollection<SearchDestinationItem>
-        {
-            new() { Name = "London", Type = "CITY", Count = 3, ImageUrl = "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=1200&h=600&fit=crop" },
-            new() { Name = "Paris", Type = "CITY", Count = 1, ImageUrl = "https://images.unsplash.com/photo-1431274172761-fca41d930114?w=1200&h=600&fit=crop" },
-            new() { Name = "Seoul", Type = "CITY", Count = 2, ImageUrl = "https://images.unsplash.com/photo-1538669715315-155098f0fb1d?w=1200&h=600&fit=crop" },
-            new() { Name = "Rome", Type = "CITY", Count = 4, ImageUrl = "https://images.unsplash.com/photo-1525874684015-58379d421a52?w=1200&h=600&fit=crop" }
-        };
+        _poiApiClient = poiApiClient;
+        PopularDestinations = new ObservableCollection<SearchDestinationItem>();
 
         TourTypes = new ObservableCollection<TourTypeOption>
         {
@@ -119,7 +119,37 @@ public class SearchViewModel : INotifyPropertyChanged
             {
                 type.IsSelected = false;
             }
+
         });
+    }
+
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var language = UserProfileService.PreferredLanguage;
+            var pois = await _poiApiClient.GetAllAsync(language, cancellationToken);
+            var top = pois.Take(8);
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                PopularDestinations.Clear();
+                foreach (var p in top)
+                {
+                    PopularDestinations.Add(new SearchDestinationItem
+                    {
+                        Name = string.IsNullOrWhiteSpace(p.Title) ? p.Location : p.Title,
+                        Type = p.Category ?? "PLACE",
+                        Count = p.ReviewCount,
+                        ImageUrl = p.ImageUrl
+                    });
+                }
+            });
+        }
+        catch
+        {
+            // leave list empty on error; UI can show empty state
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

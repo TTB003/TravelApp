@@ -26,6 +26,7 @@ public class PoiDto
     public string? PrimaryLanguage { get; set; }
     public IReadOnlyList<PoiLocalizationDto> Localizations { get; set; } = [];
     public IReadOnlyList<PoiAudioDto> AudioAssets { get; set; } = [];
+    public IReadOnlyList<Story> Stories { get; set; } = [];
 }
 
 public record NearbyPoiQueryDto(double Latitude, double Longitude, double RadiusMeters = 500);

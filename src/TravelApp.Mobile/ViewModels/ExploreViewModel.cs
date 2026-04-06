@@ -6,6 +6,7 @@ using TravelApp.Models;
 using TravelApp.Models.Contracts;
 using TravelApp.Services;
 using TravelApp.Services.Abstractions;
+using Microsoft.Maui.ApplicationModel;
 
 namespace TravelApp.ViewModels;
 
@@ -13,7 +14,31 @@ public class ExploreViewModel : INotifyPropertyChanged
 {
     private bool _isMenuOpen;
     private bool _isLoggedIn;
+    private bool _isLoading;
+    private string _statusMessage = string.Empty;
     private readonly IPoiApiClient _poiApiClient;
+
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set
+        {
+            if (_isLoading == value) return;
+            _isLoading = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set
+        {
+            if (_statusMessage == value) return;
+            _statusMessage = value;
+            OnPropertyChanged();
+        }
+    }
 
     public ObservableCollection<PoiModel> ForYouItems { get; }
     public ObservableCollection<PoiModel> EditorsChoiceItems { get; }
@@ -101,6 +126,8 @@ public class ExploreViewModel : INotifyPropertyChanged
 
     private async Task LoadPoisAsync()
     {
+        IsLoading = true;
+        StatusMessage = string.Empty;
         try
         {
             var language = UserProfileService.PreferredLanguage;
@@ -112,8 +139,7 @@ public class ExploreViewModel : INotifyPropertyChanged
 
             if (forYou.Count == 0 && editors.Count == 0)
             {
-                forYou = MockDataService.GetForYouData();
-                editors = MockDataService.GetEditorsChoiceData();
+                StatusMessage = "No POIs found nearby.";
             }
 
             MainThread.BeginInvokeOnMainThread(() =>
@@ -131,22 +157,19 @@ public class ExploreViewModel : INotifyPropertyChanged
                 }
             });
         }
-        catch
+        catch (Exception ex)
         {
+            // Hiển thị lỗi chi tiết để dễ debug (sẽ hiển thị trên UI thông qua StatusMessage)
+            StatusMessage = ex.Message;
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 ForYouItems.Clear();
-                foreach (var item in MockDataService.GetForYouData())
-                {
-                    ForYouItems.Add(item);
-                }
-
                 EditorsChoiceItems.Clear();
-                foreach (var item in MockDataService.GetEditorsChoiceData())
-                {
-                    EditorsChoiceItems.Add(item);
-                }
             });
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 

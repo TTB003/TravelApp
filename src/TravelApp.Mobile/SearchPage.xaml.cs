@@ -7,6 +7,8 @@ public partial class SearchPage : ContentPage
     public SearchPage()
     {
         InitializeComponent();
-        BindingContext = new SearchViewModel();
+        var vm = MauiProgram.Services.GetService<SearchViewModel>()!;
+        BindingContext = vm;
+        _ = vm.InitializeAsync();
     }
 }

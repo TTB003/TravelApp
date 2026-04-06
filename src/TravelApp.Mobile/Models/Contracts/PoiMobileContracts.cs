@@ -16,6 +16,7 @@ public class PoiMobileDto
     public double GeofenceRadiusMeters { get; set; }
     public string Category { get; set; } = string.Empty;
     public List<PoiAudioMobileDto> AudioAssets { get; set; } = [];
+    public List<PoiStoryDto> Stories { get; set; } = new();
 }
 
 public class PoiAudioMobileDto
@@ -25,6 +26,15 @@ public class PoiAudioMobileDto
     public string? AudioUrl { get; set; }
     public string? Transcript { get; set; }
     public bool IsGenerated { get; set; }
+}
+
+public class PoiStoryDto
+{
+    public int Id { get; set; }
+    public string LanguageCode { get; set; } = "en";
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public int OrderIndex { get; set; }
 }
 
 public class PagedResultDto<T>
