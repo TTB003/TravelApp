@@ -1,6 +1,10 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Collections.ObjectModel;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 using TravelApp.Models;
 using TravelApp.Models.Contracts;
 using TravelApp.Services;
@@ -11,13 +15,13 @@ namespace TravelApp.ViewModels;
 public class TourDetailViewModel : INotifyPropertyChanged
 {
     private PoiModel? _tour;
-    private readonly IPoiApiClient _poiApiClient;
+    private readonly IPoiApiClient _poiService;
     private readonly ITextToSpeechService _ttsService;
-    private readonly IList<string> _languages = new List<string> { "en", "vi", "fr", "ja", "es" };
+    private CancellationTokenSource? _reloadCts;
+    private readonly IList<string> _languages = new List<string> { "vi", "en", "fr" };
     private string _selectedLanguage = UserProfileService.PreferredLanguage;
     private TabSelection _selectedTab = TabSelection.Description;
-    private readonly string[] _supportedLanguages = new[] { "en", "vi" };
-    private int _languageIndex = 0;
+    private int _currentPoiId;
 
     public PoiModel? Tour
     {
@@ -47,10 +51,14 @@ public class TourDetailViewModel : INotifyPropertyChanged
             _selectedLanguage = value;
             UserProfileService.PreferredLanguage = _selectedLanguage;
             OnPropertyChanged();
-            // reload POI in selected language
-            if (Tour is not null)
+
+            // reload POI content and stories in the new language
+            if (_currentPoiId != 0)
             {
-                _ = LoadAsync(Tour.Id);
+                // cancel previous reload if any
+                _reloadCts?.Cancel();
+                _reloadCts = new CancellationTokenSource();
+                _ = LoadAsync(_currentPoiId);
             }
         }
     }
@@ -71,9 +79,11 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     public ICommand BackCommand { get; }
 
+    public ObservableCollection<Story> Stories { get; } = new();
+
     public TourDetailViewModel(IPoiApiClient poiApiClient, ITextToSpeechService ttsService)
     {
-        _poiApiClient = poiApiClient;
+        _poiService = poiApiClient;
         _ttsService = ttsService;
         BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
 
@@ -121,12 +131,15 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     private async Task LoadAsync(int id)
     {
+        _currentPoiId = id;
         try
         {
-            var dto = await _poiApiClient.GetByIdAsync(id, SelectedLanguage);
+            var dto = await _poiService.GetByIdAsync(id, SelectedLanguage);
             if (dto is not null)
             {
                 Tour = MapPoi(dto);
+                // update Stories collection for binding
+                UpdateStories(dto);
                 return;
             }
         }
@@ -137,6 +150,24 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
         // If API failed or returned nothing, leave Tour as null so the UI can show an appropriate empty state
         Tour = null;
+        Stories.Clear();
+    }
+
+    private void UpdateStories(PoiDto dto)
+    {
+        Stories.Clear();
+        if (dto.Stories is null) return;
+
+        foreach (var s in dto.Stories)
+        {
+            if (s is null) continue;
+            Stories.Add(new Story
+            {
+                Title = s.Title,
+                Content = s.Content,
+                LanguageCode = s.LanguageCode
+            });
+        }
     }
 
     private static PoiModel MapPoi(PoiDto dto)
