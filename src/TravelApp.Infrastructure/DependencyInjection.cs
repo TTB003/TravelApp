@@ -16,8 +16,16 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString);
         });
 
+        // Provide IHttpClientFactory for external API calls (e.g., Google Translate)
+        services.AddHttpClient();
+
+        // Register translation service implementation
+        services.AddScoped<TravelApp.Application.Abstractions.ITranslationService, TravelApp.Infrastructure.Services.Translation.GoogleTranslationService>();
+
         services.AddScoped<ITravelAppDbContext>(provider => provider.GetRequiredService<TravelAppDbContext>());
         services.AddScoped<IPoiQueryService, PoiQueryService>();
+        // register translation service for server-side translation
+        services.AddScoped<TravelApp.Application.Abstractions.ITranslationService, TravelApp.Infrastructure.Services.Translation.GoogleTranslationService>();
 
         return services;
     }

@@ -18,4 +18,5 @@ public class Poi
 
     public ICollection<PoiLocalization> Localizations { get; set; } = new List<PoiLocalization>();
     public ICollection<PoiAudio> AudioAssets { get; set; } = new List<PoiAudio>();
+    public ICollection<PoiStory> Stories { get; set; } = new List<PoiStory>();
 }

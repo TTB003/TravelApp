@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TravelApp.Application.Abstractions.Pois;
 using TravelApp.Application.Dtos.Pois;
+using TravelApp.Application.Dtos.Pois;
 using TravelApp.Domain.Entities;
 using TravelApp.Infrastructure.Persistence;
 
@@ -13,10 +14,12 @@ public class PoiQueryService : IPoiQueryService
     private const double EarthRadiusMeters = 6371000;
 
     private readonly TravelAppDbContext _dbContext;
+    private readonly TravelApp.Application.Abstractions.ITranslationService _translationService;
 
-    public PoiQueryService(TravelAppDbContext dbContext)
+    public PoiQueryService(TravelAppDbContext dbContext, TravelApp.Application.Abstractions.ITranslationService translationService)
     {
         _dbContext = dbContext;
+        _translationService = translationService;
     }
 
     public async Task<PagedResultDto<PoiMobileDto>> GetAllAsync(PoiQueryRequestDto request, CancellationToken cancellationToken = default)
@@ -128,13 +131,94 @@ public class PoiQueryService : IPoiQueryService
 
     public async Task<PoiMobileDto?> GetByIdAsync(int id, string? languageCode, CancellationToken cancellationToken = default)
     {
+        var requestedLanguage = NormalizeLanguageCode(languageCode);
+
+        // Load poi with related collections
         var poi = await _dbContext.Pois
-            .AsNoTracking()
             .Include(x => x.Localizations)
             .Include(x => x.AudioAssets)
+            .Include(x => x.Stories)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        return poi is null ? null : MapToMobileDto(poi, languageCode);
+        if (poi is null)
+            return null;
+
+        // If requested language not present in localizations or stories, attempt server-side translation
+        var hasLocalization = poi.Localizations.Any(x => string.Equals(x.LanguageCode, requestedLanguage, StringComparison.OrdinalIgnoreCase));
+
+        // Load stories if any (optional relationship)
+        var hasStories = false;
+        try
+        {
+            var stories = poi.Stories?.ToList() ?? new List<Domain.Entities.PoiStory>();
+            hasStories = stories.Any(s => string.Equals(s.LanguageCode, requestedLanguage, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasLocalization || !hasStories)
+            {
+                // perform translation where needed
+                var translationService = _dbContext.GetService<TravelApp.Application.Abstractions.ITranslationService>();
+                // translate title/subtitle/description if missing
+                if (!hasLocalization)
+                {
+                    var title = await _translationService.TranslateTextAsync(poi.Title, requestedLanguage, cancellationToken) ?? poi.Title;
+                    var subtitle = await _translationService.TranslateTextAsync(poi.Subtitle ?? string.Empty, requestedLanguage, cancellationToken) ?? poi.Subtitle;
+                    var description = await _translationService.TranslateTextAsync(poi.Description ?? string.Empty, requestedLanguage, cancellationToken) ?? poi.Description;
+
+                    var loc = new PoiLocalization
+                    {
+                        PoiId = poi.Id,
+                        LanguageCode = requestedLanguage,
+                        Title = title,
+                        Subtitle = subtitle,
+                        Description = description
+                    };
+                    _dbContext.PoiLocalizations.Add(loc);
+                }
+
+                if (!hasStories)
+                {
+                    var existingStories = stories;
+                    var storiesToTranslate = existingStories.Where(s => string.Equals(s.LanguageCode, poi.PrimaryLanguage, StringComparison.OrdinalIgnoreCase)).ToList();
+                    foreach (var s in storiesToTranslate)
+                    {
+                        var tTitle = await _translationService.TranslateTextAsync(s.Title, requestedLanguage, cancellationToken) ?? s.Title;
+                        var tContent = await _translation_service.TranslateTextAsync(s.Content, requestedLanguage, cancellationToken) ?? s.Content;
+                        var newStory = new Domain.Entities.PoiStory
+                        {
+                            PoiId = poi.Id,
+                            LanguageCode = requestedLanguage,
+                            Title = tTitle,
+                            Content = tContent,
+                            OrderIndex = s.OrderIndex
+                        };
+                        _dbContext.Set<Domain.Entities.PoiStory>().Add(newStory);
+                    }
+                }
+
+                try
+                {
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+                catch
+                {
+                    // If save fails, swallow to allow fallback to primary language
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // On any translation failure, continue and return existing data (fallback)
+        }
+
+        // reload poi as no-tracking for mapping
+        var poiReload = await _dbContext.Pois
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Include(x => x.Localizations)
+            .Include(x => x.AudioAssets)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return MapToMobileDto(poiReload!, languageCode);
     }
 
     public async Task<PoiMobileDto> CreateAsync(UpsertPoiRequestDto request, CancellationToken cancellationToken = default)
@@ -215,6 +299,8 @@ public class PoiQueryService : IPoiQueryService
                     IsGenerated = x.IsGenerated
                 })
                 .ToList()
+            ,
+            Stories = MapStories(poi, requestedLanguage, primaryLanguage)
         };
 
         return dto;
@@ -258,6 +344,27 @@ public class PoiQueryService : IPoiQueryService
         return string.IsNullOrWhiteSpace(languageCode)
             ? "en"
             : languageCode.Trim().ToLowerInvariant();
+    }
+
+    private static List<PoiStoryDto> MapStories(Poi poi, string requestedLanguage, string primaryLanguage)
+    {
+        var stories = poi.Stories ?? new List<PoiStory>();
+
+        // Prefer stories in requested language, then primary, then any
+        var selected = stories.Where(s => string.Equals(s.LanguageCode, requestedLanguage, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (selected.Count == 0)
+            selected = stories.Where(s => string.Equals(s.LanguageCode, primaryLanguage, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (selected.Count == 0)
+            selected = stories.ToList();
+
+        return selected.OrderBy(s => s.OrderIndex).Select(s => new PoiStoryDto
+        {
+            Id = s.Id,
+            LanguageCode = s.LanguageCode,
+            Title = s.Title,
+            Content = s.Content,
+            OrderIndex = s.OrderIndex
+        }).ToList();
     }
 
     private static void ApplyRequest(Poi poi, UpsertPoiRequestDto request)
