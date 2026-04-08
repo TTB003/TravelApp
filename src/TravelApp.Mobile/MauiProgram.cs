@@ -69,11 +69,14 @@ namespace TravelApp
             builder.Services.AddHttpClient();
             builder.Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
             builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
+            builder.Services.AddSingleton<TourRouteCacheService>();
+            builder.Services.AddSingleton<ITourRouteCacheService>(sp => sp.GetRequiredService<TourRouteCacheService>());
             builder.Services.AddTransient<IAuthApiClient, AuthApiClient>();
             builder.Services.AddTransient<IProfileApiClient, ProfileApiClient>();
             builder.Services.AddTransient<IPoiApiClient, PoiApiClient>();
             builder.Services.AddTransient<ITourApiClient, TourApiClient>();
             builder.Services.AddTransient<ITourRouteCatalogService, TourRouteCatalogService>();
+            builder.Services.AddSingleton<ITourRouteGeometryService, AzureMapsRouteGeometryService>();
             builder.Services.AddTransient<IPoiApiService, PoiApiService>();
 
             builder.Services.AddSingleton(TimeProvider.System);

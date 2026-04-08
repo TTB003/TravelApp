@@ -21,6 +21,7 @@ public class PoiDto
     public string? Credit { get; set; }
     public string? Category { get; set; }
     public string? PrimaryLanguage { get; set; }
+    public string? SpeechText { get; set; }
     public IReadOnlyList<PoiLocalizationDto> Localizations { get; set; } = [];
     public IReadOnlyList<PoiAudioDto> AudioAssets { get; set; } = [];
 }
@@ -41,5 +42,6 @@ public record UpsertPoiRequestDto(
     string? Duration,
     string? Provider,
     string? Credit,
+    string? SpeechText,
     IReadOnlyList<PoiLocalizationDto>? Localizations,
     IReadOnlyList<PoiAudioDto>? AudioAssets);

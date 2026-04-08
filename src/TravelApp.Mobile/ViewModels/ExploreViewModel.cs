@@ -218,7 +218,8 @@ public class ExploreViewModel : INotifyPropertyChanged
             var language = UserProfileService.PreferredLanguage;
             var pois = await _poiApiClient.GetAllAsync(language);
 
-            var mapped = pois.Select(MapPoi).ToList();
+            var localById = MockDataService.GetAllTourData().ToDictionary(x => x.Id);
+            var mapped = pois.Select(MapPoi).Select(item => localById.TryGetValue(item.Id, out var local) ? local : item).ToList();
             var forYou = mapped.Take(3).ToList();
             var editors = mapped.Skip(3).Take(3).ToList();
 

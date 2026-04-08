@@ -55,3 +55,6 @@
 - Ensure responsive and accessibility considerations in all designs.
 - Maintain a friendly tone with suitable emojis.
 - When requested, provide complete copy-pasteable XAML/C# code.
+
+## Debugging Guidelines
+- When explaining fixes, always include the root cause of the issue clearly along with the solution.

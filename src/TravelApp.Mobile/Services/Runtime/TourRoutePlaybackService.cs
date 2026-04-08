@@ -37,13 +37,16 @@ public sealed class TourRoutePlaybackService : ITourRoutePlaybackService, IDispo
         _audioService = audioService;
         _timeProvider = timeProvider;
         _logger = logger;
+
+        _audioService.PlaybackEnded += OnAudioPlaybackEnded;
     }
 
-    public async Task StartAsync(TourRouteDto route, CancellationToken cancellationToken = default)
+    public async Task StartAsync(TourRouteDto route, int? preferredPoiId = null, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            await _audioService.StopAsync(cancellationToken);
             _currentRoute = route;
             _currentIndex = -1;
             _lastAutoSelectAtUtc = null;
@@ -57,7 +60,14 @@ public sealed class TourRoutePlaybackService : ITourRoutePlaybackService, IDispo
             }
 
             _logger.LogInformation("Tour route playback started for route {RouteId} with {WaypointCount} waypoints.", route.Id, route.Waypoints.Count);
-            EvaluateLocation(_locationTrackerService.CurrentLocation, isAuto: false, forceInitialSelection: true);
+            if (route.Waypoints.Count > 0)
+            {
+                var startIndex = preferredPoiId.HasValue
+                    ? route.Waypoints.ToList().FindIndex(x => x.Poi.Id == preferredPoiId.Value)
+                    : -1;
+
+                SetActiveIndex(startIndex >= 0 ? startIndex : 0, isAuto: false, forceAudio: false, CancellationToken.None);
+            }
         }
         finally
         {
@@ -72,9 +82,11 @@ public sealed class TourRoutePlaybackService : ITourRoutePlaybackService, IDispo
         {
             if (!_isStarted)
             {
+                await _audioService.StopAsync(cancellationToken);
                 return;
             }
 
+            await _audioService.StopAsync(cancellationToken);
             _locationTrackerService.LocationChanged -= OnLocationChanged;
             _isStarted = false;
             _currentRoute = null;
@@ -188,22 +200,6 @@ public sealed class TourRoutePlaybackService : ITourRoutePlaybackService, IDispo
             return -1;
         }
 
-        var currentDistance = CalculateDistanceMeters(location.Latitude, location.Longitude, waypoints[_currentIndex].Poi.Latitude, waypoints[_currentIndex].Poi.Longitude);
-        if (currentDistance <= GetActivationRadiusMeters(waypoints[_currentIndex]))
-        {
-            return _currentIndex;
-        }
-
-        var nextIndex = _currentIndex + 1;
-        if (nextIndex < waypoints.Count)
-        {
-            var nextDistance = CalculateDistanceMeters(location.Latitude, location.Longitude, waypoints[nextIndex].Poi.Latitude, waypoints[nextIndex].Poi.Longitude);
-            if (nextDistance <= GetActivationRadiusMeters(waypoints[nextIndex]))
-            {
-                return nextIndex;
-            }
-        }
-
         return _currentIndex;
     }
 
@@ -253,6 +249,31 @@ public sealed class TourRoutePlaybackService : ITourRoutePlaybackService, IDispo
         ActiveWaypointChanged?.Invoke(this, new TourRoutePlaybackChangedEventArgs(waypoint, isAuto, location));
     }
 
+    private void OnAudioPlaybackEnded(object? sender, EventArgs e)
+    {
+        _ = Task.Run(async () =>
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                if (_currentRoute is null || !IsValidIndex(_currentIndex))
+                {
+                    return;
+                }
+
+                var nextIndex = _currentIndex + 1;
+                if (nextIndex < _currentRoute.Waypoints.Count)
+                {
+                    SetActiveIndex(nextIndex, isAuto: true, forceAudio: true, CancellationToken.None);
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        });
+    }
+
     private bool HasRecentAutoSelection(DateTimeOffset now)
     {
         return _lastAutoSelectAtUtc.HasValue && now - _lastAutoSelectAtUtc.Value < AudioCooldown;
@@ -298,6 +319,7 @@ public sealed class TourRoutePlaybackService : ITourRoutePlaybackService, IDispo
     public void Dispose()
     {
         _locationTrackerService.LocationChanged -= OnLocationChanged;
+        _audioService.PlaybackEnded -= OnAudioPlaybackEnded;
         _gate.Dispose();
     }
 }

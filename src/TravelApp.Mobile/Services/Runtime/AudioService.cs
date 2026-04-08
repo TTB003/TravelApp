@@ -7,6 +7,8 @@ namespace TravelApp.Services.Runtime;
 
 public class AudioService : IAudioService, IDisposable
 {
+    public event EventHandler? PlaybackEnded;
+
     private readonly IPoiGeofenceService _poiGeofenceService;
     private readonly IAudioManager _audioManager;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -17,6 +19,7 @@ public class AudioService : IAudioService, IDisposable
 
     private IAudioPlayer? _player;
     private Stream? _activeStream;
+    private CancellationTokenSource? _ttsPlaybackCts;
 
     public AudioService(
         IPoiGeofenceService poiGeofenceService,
@@ -46,6 +49,30 @@ public class AudioService : IAudioService, IDisposable
             var languageCode = string.IsNullOrWhiteSpace(poi.LanguageCode)
                 ? (string.IsNullOrWhiteSpace(poi.PrimaryLanguage) ? "en" : poi.PrimaryLanguage)
                 : poi.LanguageCode;
+
+            var speechText = BuildSpeechText(poi, languageCode);
+            if (!string.IsNullOrWhiteSpace(speechText))
+            {
+                _ttsPlaybackCts?.Cancel();
+                _ttsPlaybackCts?.Dispose();
+                _ttsPlaybackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                try
+                {
+                    await TextToSpeech.Default.SpeakAsync(speechText, new SpeechOptions
+                    {
+                        Locale = await ResolveLocaleAsync(languageCode)
+                    }, _ttsPlaybackCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                PlaybackEnded?.Invoke(this, EventArgs.Empty);
+                LogSource("local-tts", poi, languageCode, speechText);
+                return;
+            }
 
             var offlineSource = await ResolveOfflineAudioSourceAsync(poi, languageCode, cancellationToken);
             if (!string.IsNullOrWhiteSpace(offlineSource) && File.Exists(offlineSource))
@@ -87,6 +114,7 @@ public class AudioService : IAudioService, IDisposable
             }
 
             await PlayWithLocalTtsAsync(poi, languageCode, cancellationToken);
+            PlaybackEnded?.Invoke(this, EventArgs.Empty);
             LogSource("local-tts", poi, languageCode, "TextToSpeech.Default");
         }
         finally
@@ -100,7 +128,10 @@ public class AudioService : IAudioService, IDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _ttsPlaybackCts?.Cancel();
             await StopInternalAsync("manual-stop");
+            _ttsPlaybackCts?.Dispose();
+            _ttsPlaybackCts = null;
         }
         finally
         {
@@ -122,6 +153,8 @@ public class AudioService : IAudioService, IDisposable
 
     private async Task StopInternalAsync(string reason)
     {
+        _ttsPlaybackCts?.Cancel();
+
         if (_player is not null)
         {
             _player.PlaybackEnded -= OnPlaybackEnded;
@@ -151,6 +184,8 @@ public class AudioService : IAudioService, IDisposable
 
     private void OnPlaybackEnded(object? sender, EventArgs e)
     {
+        PlaybackEnded?.Invoke(this, EventArgs.Empty);
+
         _ = Task.Run(async () =>
         {
             await _gate.WaitAsync();
@@ -246,7 +281,7 @@ public class AudioService : IAudioService, IDisposable
 
     private static async Task PlayWithLocalTtsAsync(PoiMobileDto poi, string languageCode, CancellationToken cancellationToken)
     {
-        var text = BuildSpeechText(poi);
+        var text = BuildSpeechText(poi, languageCode);
         if (string.IsNullOrWhiteSpace(text))
         {
             text = $"Bạn đang ở gần {poi.Title}";
@@ -272,8 +307,13 @@ public class AudioService : IAudioService, IDisposable
         }
     }
 
-    private static string BuildSpeechText(PoiMobileDto poi)
+    private static string BuildSpeechText(PoiMobileDto poi, string languageCode)
     {
+        if (!string.IsNullOrWhiteSpace(poi.SpeechText))
+        {
+            return poi.SpeechText;
+        }
+
         if (!string.IsNullOrWhiteSpace(poi.Description))
         {
             return poi.Description;
@@ -303,6 +343,8 @@ public class AudioService : IAudioService, IDisposable
     public void Dispose()
     {
         _poiGeofenceService.OnPoiEntered -= OnPoiEntered;
+        _ttsPlaybackCts?.Cancel();
+        _ttsPlaybackCts?.Dispose();
         _gate.Dispose();
     }
 }

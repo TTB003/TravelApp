@@ -40,6 +40,9 @@ public class PoiConfiguration : IEntityTypeConfiguration<Poi>
         builder.Property(x => x.Credit)
             .HasMaxLength(1024);
 
+        builder.Property(x => x.SpeechText)
+            .HasMaxLength(4000);
+
         builder.Property(x => x.PrimaryLanguage)
             .HasMaxLength(10)
             .IsRequired();

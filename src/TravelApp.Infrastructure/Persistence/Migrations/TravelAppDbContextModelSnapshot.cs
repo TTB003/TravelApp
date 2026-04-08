@@ -41,6 +41,10 @@ namespace TravelApp.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
 
+                    b.Property<string>("SpeechText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("Description")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
@@ -219,7 +223,7 @@ namespace TravelApp.Infrastructure.Persistence.Migrations
                         {
                             Id = 1,
                             AnchorPoiId = 1,
-                            CoverImageUrl = "https://images.unsplash.com/photo-1555521760-cb7ebb6a9c62?w=1200&h=800&fit=crop",
+                            CoverImageUrl = "https://placehold.co/1200x800/png?text=HCM+Food+Tour",
                             CreatedAtUtc = new DateTimeOffset(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.Zero),
                             Description = "Tour ẩm thực Sài Gòn với các điểm dừng được sắp xếp theo lộ trình thật.",
                             IsPublished = true,
@@ -231,7 +235,7 @@ namespace TravelApp.Infrastructure.Persistence.Migrations
                         {
                             Id = 2,
                             AnchorPoiId = 4,
-                            CoverImageUrl = "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&h=800&fit=crop",
+                            CoverImageUrl = "https://placehold.co/1200x800/png?text=Hanoi+Food+Tour",
                             CreatedAtUtc = new DateTimeOffset(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.Zero),
                             Description = "Tour ẩm thực Hà Nội với các mốc waypoint, bản đồ và audio tự động.",
                             IsPublished = true,
@@ -414,7 +418,6 @@ namespace TravelApp.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("AnchorPoi");
-                    b.Navigation("TourPois");
                 });
 
             modelBuilder.Entity("TravelApp.Domain.Entities.TourPoi", b =>
@@ -464,8 +467,6 @@ namespace TravelApp.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("TravelApp.Domain.Entities.Tour", b =>
                 {
                     b.Navigation("AnchorPoi");
-
-                    b.Navigation("TourPois");
                 });
 
             modelBuilder.Entity("TravelApp.Domain.Entities.TourPoi", b =>

@@ -5,102 +5,168 @@ namespace TravelApp.Services.Runtime;
 
 public sealed class TourRouteCatalogService : ITourRouteCatalogService
 {
-    private readonly IPoiApiClient _poiApiClient;
+    private readonly ITourApiClient _tourApiClient;
+    private readonly ILocalDatabaseService _localDatabaseService;
+    private readonly ITourRouteCacheService _tourRouteCacheService;
 
-    public TourRouteCatalogService(IPoiApiClient poiApiClient)
+    public TourRouteCatalogService(
+        ITourApiClient tourApiClient,
+        ILocalDatabaseService localDatabaseService,
+        ITourRouteCacheService tourRouteCacheService)
     {
-        _poiApiClient = poiApiClient;
+        _tourApiClient = tourApiClient;
+        _localDatabaseService = localDatabaseService;
+        _tourRouteCacheService = tourRouteCacheService;
     }
 
-    public async Task<TourRouteDto?> GetRouteAsync(int poiId, string? languageCode = null, CancellationToken cancellationToken = default)
+    public async Task<TourRouteDto?> GetRouteAsync(int anchorPoiId, string? languageCode = null, CancellationToken cancellationToken = default)
     {
-        var route = ResolveRoute(poiId);
-        if (route is null)
-        {
-            return null;
-        }
+        var normalizedLanguage = NormalizeLanguageCode(languageCode);
+        TourRouteDto? route = null;
 
-        var pois = new List<PoiDto>();
-        foreach (var id in route.PoiIds)
+        if (Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
         {
-            var poi = await _poiApiClient.GetByIdAsync(id, languageCode, cancellationToken);
-            if (poi is null)
+            try
             {
-                return null;
+                route = await _tourApiClient.GetByAnchorPoiIdAsync(anchorPoiId, normalizedLanguage, cancellationToken);
+                if (route is not null && IsAcceptableRoute(route))
+                {
+                    route = await MergeLocalPoiOverridesAsync(route, normalizedLanguage, cancellationToken);
+                    await _localDatabaseService.SavePoisAsync(route.Waypoints.Select(x => x.Poi), cancellationToken);
+                    await _tourRouteCacheService.SaveAsync(route, cancellationToken);
+                    return route;
+                }
             }
-
-            pois.Add(poi);
+            catch
+            {
+            }
         }
 
-        var waypoints = pois.Select((poi, index) => new TourRouteWaypointDto
+        route = await _tourRouteCacheService.GetAsync(anchorPoiId, normalizedLanguage, cancellationToken);
+        var cached = route;
+        if (cached is not null && cached.Waypoints.Count > 0)
         {
-            SortOrder = index + 1,
-            DistanceFromPreviousMeters = route.DistanceFromPreviousMeters[index],
-            Poi = MapPoi(poi)
-        }).ToList();
+            return await MergeLocalPoiOverridesAsync(cached, normalizedLanguage, cancellationToken);
+        }
 
-        return new TourRouteDto
-        {
-            Id = route.TourId,
-            AnchorPoiId = route.AnchorPoiId,
-            Name = route.Name,
-            Description = route.Description,
-            CoverImageUrl = route.CoverImageUrl,
-            PrimaryLanguage = languageCode ?? "vi",
-            TotalDistanceMeters = waypoints.Sum(x => x.DistanceFromPreviousMeters ?? 0),
-            Waypoints = waypoints
-        };
+        route = BuildLocalFallbackRoute(anchorPoiId, normalizedLanguage);
+        return route is null ? null : await MergeLocalPoiOverridesAsync(route, normalizedLanguage, cancellationToken);
     }
 
-    private static RouteDefinition? ResolveRoute(int poiId)
+    private static string NormalizeLanguageCode(string? languageCode)
     {
-        return poiId switch
+        return string.IsNullOrWhiteSpace(languageCode) ? "en" : languageCode.Trim().ToLowerInvariant();
+    }
+
+    private static bool IsAcceptableRoute(TourRouteDto? route)
+    {
+        if (route is null || route.Waypoints.Count < 2)
         {
-            1 or 2 or 3 => new RouteDefinition(
-                TourId: 1,
-                AnchorPoiId: 1,
-                Name: "HCM Food Tour",
-                Description: "Tour ẩm thực Sài Gòn với các điểm dừng được sắp xếp theo lộ trình thật.",
-                CoverImageUrl: "https://images.unsplash.com/photo-1555521760-cb7ebb6a9c62?w=1200&h=800&fit=crop",
-                PoiIds: new[] { 1, 2, 3 },
-                DistanceFromPreviousMeters: new[] { 0d, 900d, 1100d }),
-            4 or 5 or 6 => new RouteDefinition(
-                TourId: 2,
-                AnchorPoiId: 4,
-                Name: "Hanoi Food Tour",
-                Description: "Tour ẩm thực Hà Nội với các mốc waypoint, bản đồ và audio tự động.",
-                CoverImageUrl: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&h=800&fit=crop",
-                PoiIds: new[] { 4, 5, 6 },
-                DistanceFromPreviousMeters: new[] { 0d, 300d, 500d }),
+            return false;
+        }
+
+        return !route.Waypoints.Any(x =>
+            x.Poi.Title.Contains("Central Park", StringComparison.OrdinalIgnoreCase) ||
+            x.Poi.Location.Contains("New York", StringComparison.OrdinalIgnoreCase) ||
+            x.Poi.Location.Contains("USA", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static TourRouteDto? BuildLocalFallbackRoute(int anchorPoiId, string languageCode)
+    {
+        return anchorPoiId switch
+        {
+            1 or 2 or 3 => new TourRouteDto
+            {
+                Id = 1,
+                AnchorPoiId = 1,
+                Name = "HCM Food Tour",
+                Description = "Tour ẩm thực Sài Gòn với các điểm dừng được sắp xếp theo lộ trình thật.",
+                CoverImageUrl = "https://placehold.co/1200x800/png?text=HCM+Food+Tour",
+                PrimaryLanguage = languageCode,
+                TotalDistanceMeters = 2000,
+                Waypoints =
+                [
+                    CreateWaypoint(1, 1, "Chợ Bến Thành", "Chợ Bến Thành, Quận 1, TPHCM", 10.7725, 106.6992, 0, "Điểm khởi đầu của tour ẩm thực HCM. Chợ Bến Thành là một trong những chợ truyền thống nổi tiếng nhất Sài Gòn với đa dạng hàng hóa và đặc biệt là các quán ăn địa phương."),
+                    CreateWaypoint(2, 2, "Phở Vĩnh Khánh", "Phố Vĩnh Khánh, Quận 4, TPHCM", 10.7660, 106.7090, 900, "Quán phở nổi tiếng với nước dùng được ninh từ 12h, phục vụ phở bò ngon nhất Quận 4. Được nhiều du khách lựa chọn trong tour ẩm thực."),
+                    CreateWaypoint(3, 3, "Bến Bạch Đằng", "Bến Bạch Đằng, Quận 1, TPHCM", 10.7558, 106.7062, 1100, "Kết thúc tour tại bến Bạch Đằng. Thưởng thức các đặc sản Sài Gòn và tận hưởng không khí ven sông.")
+                ]
+            },
+            4 or 5 or 6 => new TourRouteDto
+            {
+                Id = 2,
+                AnchorPoiId = 4,
+                Name = "Hanoi Food Tour",
+                Description = "Tour ẩm thực Hà Nội với các mốc waypoint, bản đồ và audio tự động.",
+                CoverImageUrl = "https://placehold.co/1200x800/png?text=Hanoi+Food+Tour",
+                PrimaryLanguage = languageCode,
+                TotalDistanceMeters = 800,
+                Waypoints =
+                [
+                    CreateWaypoint(4, 4, "Chùa Một Cột", "Chùa Một Cột, Quận Ba Đình, Hà Nội", 21.0294, 105.8352, 0, "Điểm khởi đầu của tour ẩm thực Hà Nội. Chùa Một Cột là một di tích lịch sử quan trọng, nằm gần khu phố cổ Hà Nội."),
+                    CreateWaypoint(5, 5, "Phố Hàng Xanh", "Phố Hàng Xanh, Quận Hoàn Kiếm, Hà Nội", 21.0285, 105.8489, 300, "Phố Hàng Xanh là một trong những phố cổ nổi tiếng của Hà Nội với các quán ăn truyền thống.") ,
+                    CreateWaypoint(6, 6, "Phố Hàng Dâu", "Phố Hàng Dâu, Quận Hoàn Kiếm, Hà Nội", 21.0273, 105.8506, 500, "Kết thúc tour tại phố Hàng Dâu. Nơi đây nổi tiếng với các cửa hàng bán lụa truyền thống và các quán ăn địa phương.")
+                ]
+            },
             _ => null
         };
     }
 
-    private static PoiMobileDto MapPoi(PoiDto poi)
+    private static TourRouteWaypointDto CreateWaypoint(int poiId, int sortOrder, string title, string location, double latitude, double longitude, double distanceMeters, string description)
     {
-        return new PoiMobileDto
+        return new TourRouteWaypointDto
         {
-            Id = poi.Id,
-            Title = poi.Title,
-            Subtitle = poi.Subtitle,
-            Description = poi.Description,
-            LanguageCode = poi.PrimaryLanguage ?? "en",
-            PrimaryLanguage = poi.PrimaryLanguage ?? "en",
-            ImageUrl = poi.ImageUrl,
-            Location = poi.Location,
-            Latitude = poi.Latitude,
-            Longitude = poi.Longitude,
-            GeofenceRadiusMeters = poi.GeofenceRadiusMeters ?? 100,
-            Category = poi.Category ?? string.Empty,
-            AudioAssets = poi.AudioAssets.Select(x => new PoiAudioMobileDto
+            SortOrder = sortOrder,
+            DistanceFromPreviousMeters = distanceMeters,
+            Poi = new PoiMobileDto
             {
-                LanguageCode = x.LanguageCode,
-                AudioUrl = x.AudioUrl,
-                Transcript = x.Transcript,
-                IsGenerated = x.IsGenerated
-            }).ToList()
+                Id = poiId,
+                Title = title,
+                Subtitle = description,
+                Description = description,
+                SpeechText = description,
+                LanguageCode = "vi",
+                PrimaryLanguage = "vi",
+                ImageUrl = string.Empty,
+                Location = location,
+                Latitude = latitude,
+                Longitude = longitude,
+                GeofenceRadiusMeters = 150,
+                Category = "Food Tour",
+            }
         };
     }
 
-    private sealed record RouteDefinition(int TourId, int AnchorPoiId, string Name, string Description, string? CoverImageUrl, IReadOnlyList<int> PoiIds, IReadOnlyList<double> DistanceFromPreviousMeters);
+    private async Task<TourRouteDto> MergeLocalPoiOverridesAsync(TourRouteDto route, string languageCode, CancellationToken cancellationToken)
+    {
+        var localPois = await _localDatabaseService.GetPoisAsync(languageCode, cancellationToken: cancellationToken);
+        var localById = localPois.ToDictionary(x => x.Id);
+
+        route.Waypoints = route.Waypoints
+            .Select(waypoint =>
+            {
+                if (!localById.TryGetValue(waypoint.Poi.Id, out var localPoi))
+                {
+                    return waypoint;
+                }
+
+                waypoint.Poi = localPoi;
+                return waypoint;
+            })
+            .ToList();
+
+        route.CoverImageUrl = NormalizeCoverImageUrl(route.CoverImageUrl, route.Name);
+
+        return route;
+    }
+
+    private static string NormalizeCoverImageUrl(string? coverImageUrl, string tourName)
+    {
+        if (!string.IsNullOrWhiteSpace(coverImageUrl)
+            && !coverImageUrl.Contains("unsplash.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return coverImageUrl;
+        }
+
+        return $"https://placehold.co/1200x800/png?text={Uri.EscapeDataString(tourName)}";
+    }
 }

@@ -93,6 +93,28 @@
 
                     <Label Text="{Binding Credit}" FontSize="14" TextColor="#2D89C8" TextDecorations="Underline" LineBreakMode="WordWrap" />
 
+                    <Border Stroke="{AppThemeBinding Light=#E3E7EE, Dark=#2A2F3A}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 16"
+                            BackgroundColor="{AppThemeBinding Light=White, Dark=#181C24}"
+                            Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Text to Speech" FontSize="16" FontAttributes="Bold" TextColor="#D31963" />
+                            <Editor Text="{Binding SpeechTextInput}"
+                                    AutoSize="TextChanges"
+                                    Placeholder="Nhập nội dung sẽ được đọc khi phát audio..."
+                                    BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light=#2B2D33, Dark=#EEF1F8}"
+                                    HeightRequest="140" />
+                            <Button Text="Lưu text TTS"
+                                    Command="{Binding SaveSpeechTextCommand}"
+                                    Style="{StaticResource PrimaryPillButtonStyle}"
+                                    HeightRequest="52"
+                                    CornerRadius="26"
+                                    FontSize="18" />
+                        </VerticalStackLayout>
+                    </Border>
+
                     <Grid ColumnDefinitions="*" Margin="0,10,0,10">
                         <Button Text="View Tour"
                                 Command="{Binding ViewTourCommand}"

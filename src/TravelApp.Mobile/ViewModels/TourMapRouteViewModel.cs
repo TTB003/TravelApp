@@ -79,7 +79,7 @@ public sealed class TourMapRouteViewModel : INotifyPropertyChanged, IDisposable
         _tourRoutePlaybackService.ActiveWaypointChanged += OnActiveWaypointChanged;
 
         BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
-        SelectWaypointCommand = new Command<TourMapWaypoint>(SelectWaypoint);
+        SelectWaypointCommand = new Command<TourMapWaypoint>(async waypoint => await SelectWaypointAsync(waypoint));
         OpenPoiCommand = new Command<TourMapWaypoint>(async waypoint =>
         {
             if (waypoint is null)
@@ -87,17 +87,26 @@ public sealed class TourMapRouteViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            SelectWaypoint(waypoint);
+            await SelectWaypointAsync(waypoint);
 
             await Shell.Current.GoToAsync($"TourDetailPage?tourId={waypoint.PoiId}");
         });
         RecenterCommand = new Command(() => RouteChanged?.Invoke(this, EventArgs.Empty));
     }
 
-    public async Task LoadAsync(int anchorPoiId, string? languageCode = null, CancellationToken cancellationToken = default)
+    public async Task LoadAsync(int anchorPoiId, int? preferredPoiId = null, string? languageCode = null, CancellationToken cancellationToken = default)
     {
         if (_anchorPoiId == anchorPoiId && Waypoints.Count > 0)
         {
+            if (preferredPoiId.HasValue)
+            {
+                var existingWaypoint = Waypoints.FirstOrDefault(x => x.PoiId == preferredPoiId.Value);
+                if (existingWaypoint is not null && SelectedWaypoint?.PoiId != existingWaypoint.PoiId)
+                {
+                    await _tourRoutePlaybackService.SelectWaypointAsync(existingWaypoint.PoiId, cancellationToken);
+                }
+            }
+
             return;
         }
 
@@ -139,12 +148,15 @@ public sealed class TourMapRouteViewModel : INotifyPropertyChanged, IDisposable
                 });
             }
 
-            SetSelectedWaypoint(Waypoints.FirstOrDefault(), raiseRouteChanged: false);
+            var preferredWaypoint = preferredPoiId.HasValue
+                ? Waypoints.FirstOrDefault(x => x.PoiId == preferredPoiId.Value)
+                : null;
+            SetSelectedWaypoint(preferredWaypoint ?? Waypoints.FirstOrDefault(), raiseRouteChanged: false);
             StatusText = Waypoints.Count == 0
                 ? "Tour chưa có waypoint nào."
                 : $"{Waypoints.Count} điểm dừng • {route.TotalDistanceMeters / 1000d:0.0} km";
 
-            await _tourRoutePlaybackService.StartAsync(route, cancellationToken);
+            await _tourRoutePlaybackService.StartAsync(route, preferredPoiId, cancellationToken);
             OnPropertyChanged(nameof(Tour));
             RouteChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -170,11 +182,12 @@ public sealed class TourMapRouteViewModel : INotifyPropertyChanged, IDisposable
         await _tourRoutePlaybackService.StopAsync(cancellationToken);
     }
 
-    private void SelectWaypoint(TourMapWaypoint? waypoint)
+    private async Task SelectWaypointAsync(TourMapWaypoint? waypoint)
     {
         if (waypoint is not null)
         {
-            _ = _tourRoutePlaybackService.SelectWaypointAsync(waypoint.PoiId);
+            SetSelectedWaypoint(waypoint, raiseRouteChanged: true);
+            await _tourRoutePlaybackService.SelectWaypointAsync(waypoint.PoiId);
         }
     }
 
@@ -184,27 +197,42 @@ public sealed class TourMapRouteViewModel : INotifyPropertyChanged, IDisposable
             ? null
             : Waypoints.FirstOrDefault(x => x.PoiId == e.Waypoint.Poi.Id);
 
-        SetSelectedWaypoint(waypoint, raiseRouteChanged: true);
-        if (e.UserLocation is not null)
+        MainThread.BeginInvokeOnMainThread(() =>
         {
-            StatusText = waypoint is null
-                ? StatusText
-                : $"Đang ở điểm {waypoint.SortOrder} • {waypoint.Title}";
-        }
+            SetSelectedWaypoint(waypoint, raiseRouteChanged: true);
+            if (e.UserLocation is not null && waypoint is not null)
+            {
+                StatusText = $"Đang ở điểm {waypoint.SortOrder} • {waypoint.Title}";
+            }
+        });
     }
 
     private void SetSelectedWaypoint(TourMapWaypoint? waypoint, bool raiseRouteChanged)
     {
         _selectedPoiId = waypoint?.PoiId;
-        SelectedWaypoint = waypoint;
 
-        foreach (var item in Waypoints)
+        var refreshed = Waypoints.Select(item => new TourMapWaypoint
         {
-            item.IsActive = item.PoiId == _selectedPoiId;
+            PoiId = item.PoiId,
+            SortOrder = item.SortOrder,
+            Title = item.Title,
+            Location = item.Location,
+            Latitude = item.Latitude,
+            Longitude = item.Longitude,
+            DistanceMeters = item.DistanceMeters,
+            Poi = item.Poi,
+            IsActive = item.PoiId == _selectedPoiId
+        }).ToList();
+
+        Waypoints.Clear();
+        foreach (var item in refreshed)
+        {
+            Waypoints.Add(item);
         }
 
+        SelectedWaypoint = Waypoints.FirstOrDefault(x => x.PoiId == _selectedPoiId);
+
         OnPropertyChanged(nameof(SelectedWaypoint));
-        OnPropertyChanged(nameof(Waypoints));
         RaiseRouteStateChanged();
 
         if (raiseRouteChanged)

@@ -2,29 +2,45 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
 using TravelApp.Models.Runtime;
+using TravelApp.Services;
+using TravelApp.Services.Abstractions;
 using TravelApp.ViewModels;
 
 namespace TravelApp;
 
 public partial class TourMapRoutePage : ContentPage, IQueryAttributable
 {
+    private static readonly Color[] SegmentColors =
+    [
+        Color.FromArgb("#E31667"),
+        Color.FromArgb("#2D9CDB"),
+        Color.FromArgb("#27AE60"),
+        Color.FromArgb("#F2994A"),
+        Color.FromArgb("#9B51E0")
+    ];
+
     private const double PulseMinMeters = 26;
     private const double PulseMaxMeters = 86;
     private const double PulseStepMeters = 4;
 
     private readonly TourMapRouteViewModel _viewModel;
+    private readonly ITourRouteGeometryService _routeGeometryService;
     private readonly Microsoft.Maui.Controls.Maps.Map _map;
     private int? _tourId;
+    private int? _poiId;
     private bool _routeLoaded;
+    private bool _isLoadingRoute;
     private IDispatcherTimer? _pulseTimer;
     private Circle? _activePulseCircle;
     private double _pulseRadiusMeters = PulseMinMeters;
     private bool _pulseExpanding = true;
+    private RouteGeometryResult _routeGeometry = new();
 
     public TourMapRoutePage()
     {
         InitializeComponent();
         _viewModel = MauiProgram.Services.GetRequiredService<TourMapRouteViewModel>();
+        _routeGeometryService = MauiProgram.Services.GetRequiredService<ITourRouteGeometryService>();
         BindingContext = _viewModel;
         _viewModel.RouteChanged += OnRouteChanged;
 
@@ -43,6 +59,11 @@ public partial class TourMapRoutePage : ContentPage, IQueryAttributable
         if (!query.TryGetValue("tourId", out var tourIdValue))
         {
             return;
+        }
+
+        if (query.TryGetValue("poiId", out var poiIdValue) && int.TryParse(poiIdValue?.ToString(), out var poiId))
+        {
+            _poiId = poiId;
         }
 
         if (int.TryParse(tourIdValue?.ToString(), out var tourId))
@@ -75,14 +96,25 @@ public partial class TourMapRoutePage : ContentPage, IQueryAttributable
 
     private async Task LoadRouteAsync()
     {
-        if (!_tourId.HasValue)
+        if (!_tourId.HasValue || _isLoadingRoute || _routeLoaded)
         {
             return;
         }
 
-        await _viewModel.LoadAsync(_tourId.Value);
-        _routeLoaded = true;
-        RenderRoute();
+        _isLoadingRoute = true;
+        try
+        {
+            await _viewModel.LoadAsync(_tourId.Value, _poiId);
+            _routeGeometry = _viewModel.Tour is null
+                ? new RouteGeometryResult()
+                : await _routeGeometryService.GetRoadPathAsync(_viewModel.Tour, UserProfileService.PreferredLanguage);
+            _routeLoaded = true;
+            RenderRoute();
+        }
+        finally
+        {
+            _isLoadingRoute = false;
+        }
     }
 
     private void OnRouteChanged(object? sender, EventArgs e)
@@ -102,21 +134,55 @@ public partial class TourMapRoutePage : ContentPage, IQueryAttributable
         }
 
         var selectedWaypoint = _viewModel.SelectedWaypoint ?? waypoints.First();
-        var mapCenter = new Location(selectedWaypoint.Latitude, selectedWaypoint.Longitude);
 
         MoveMapToSelectedWaypoint(selectedWaypoint, waypoints.Count);
+        RenderRouteSegments();
+        RenderWaypoints(waypoints, selectedWaypoint);
+        ConfigurePulseCircle(selectedWaypoint);
+    }
 
-        var polyline = new Polyline
+    private void RenderRouteSegments()
+    {
+        var segments = _routeGeometry.Segments.Count > 0
+            ? _routeGeometry.Segments
+            : new[]
+            {
+                new RouteGeometrySegment
+                {
+                    Index = 0,
+                    Label = "Route",
+                    Points = _viewModel.Waypoints.Select(x => new Location(x.Latitude, x.Longitude)).ToList()
+                }
+            };
+
+        foreach (var segment in segments)
         {
-            StrokeColor = Color.FromArgb("#E31667"),
-            StrokeWidth = 4
-        };
+            if (segment.Points.Count < 2)
+            {
+                continue;
+            }
 
+            var color = SegmentColors[segment.Index % SegmentColors.Length];
+            var polyline = new Polyline
+            {
+                StrokeColor = color,
+                StrokeWidth = 6
+            };
+
+            foreach (var location in segment.Points)
+            {
+                polyline.Geopath.Add(location);
+            }
+
+            _map.MapElements.Add(polyline);
+        }
+    }
+
+    private void RenderWaypoints(IReadOnlyList<TourMapWaypoint> waypoints, TourMapWaypoint selectedWaypoint)
+    {
         foreach (var waypoint in waypoints)
         {
             var location = new Location(waypoint.Latitude, waypoint.Longitude);
-            polyline.Geopath.Add(location);
-
             var isActive = selectedWaypoint.PoiId == waypoint.PoiId;
             var pin = new Pin
             {
@@ -136,9 +202,6 @@ public partial class TourMapRoutePage : ContentPage, IQueryAttributable
 
             _map.Pins.Add(pin);
         }
-
-        _map.MapElements.Add(polyline);
-        ConfigurePulseCircle(selectedWaypoint);
     }
 
     private void MoveMapToSelectedWaypoint(TourMapWaypoint selectedWaypoint, int waypointCount)

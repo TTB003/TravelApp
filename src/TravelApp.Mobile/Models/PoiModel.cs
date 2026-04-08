@@ -12,4 +12,5 @@ public class PoiModel
     public string? Description { get; set; }
     public string? Provider { get; set; }
     public string? Credit { get; set; }
+    public string? SpeechText { get; set; }
 }

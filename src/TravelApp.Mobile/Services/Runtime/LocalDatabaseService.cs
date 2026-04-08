@@ -59,6 +59,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 Longitude = poi.Longitude,
                 GeofenceRadiusMeters = poi.GeofenceRadiusMeters,
                 Category = poi.Category,
+                SpeechText = poi.SpeechText,
                 AudioAssets = poiAudios
             };
         }).ToList();
@@ -105,6 +106,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                     Title = poi.Title,
                     Subtitle = poi.Subtitle,
                     Description = poi.Description,
+                    SpeechText = poi.SpeechText,
                     PrimaryLanguage = NormalizeLanguage(poi.PrimaryLanguage),
                     ImageUrl = poi.ImageUrl,
                     Location = poi.Location,
@@ -232,6 +234,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             await connection.CreateTableAsync<LocalPoiLocalizationEntity>();
             await connection.CreateTableAsync<LocalPoiAudioMetadataEntity>();
 
+            await EnsurePoiSpeechTextColumnAsync(connection);
+
             _database = connection;
         }
         finally
@@ -283,6 +287,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         public string Title { get; set; } = string.Empty;
         public string Subtitle { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public string? SpeechText { get; set; }
         public string PrimaryLanguage { get; set; } = "en";
         public string ImageUrl { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
@@ -328,5 +333,21 @@ public class LocalDatabaseService : ILocalDatabaseService
         public bool IsGenerated { get; set; }
         public string? LocalFilePath { get; set; }
         public DateTimeOffset UpdatedAtUtc { get; set; }
+    }
+
+    private static async Task EnsurePoiSpeechTextColumnAsync(SQLiteAsyncConnection connection)
+    {
+        var columns = await connection.QueryAsync<TableInfoRow>("PRAGMA table_info(LocalPoi)");
+        if (columns.Any(x => string.Equals(x.Name, "SpeechText", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        await connection.ExecuteAsync("ALTER TABLE LocalPoi ADD COLUMN SpeechText TEXT NULL");
+    }
+
+    private sealed class TableInfoRow
+    {
+        public string Name { get; set; } = string.Empty;
     }
 }

@@ -15,6 +15,7 @@ public class PoiMobileDto
     public double? DistanceMeters { get; set; }
     public double GeofenceRadiusMeters { get; set; }
     public string Category { get; set; } = string.Empty;
+    public string? SpeechText { get; set; }
     public List<PoiAudioMobileDto> AudioAssets { get; set; } = [];
 }
 
@@ -57,6 +58,7 @@ public class UpsertPoiRequestDto
     public double Longitude { get; set; }
     public double GeofenceRadiusMeters { get; set; } = 100;
     public string PrimaryLanguage { get; set; } = "en";
+    public string? SpeechText { get; set; }
     public List<UpsertPoiLocalizationDto> Localizations { get; set; } = [];
     public List<UpsertPoiAudioDto> AudioAssets { get; set; } = [];
 }

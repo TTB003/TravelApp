@@ -51,21 +51,21 @@ public class PoiApiClient : ApiClientBase, IPoiApiClient
     public async Task<PoiDto?> CreateAsync(UpsertPoiRequestDto request, CancellationToken cancellationToken = default)
     {
         var client = CreateClient(authorized: true);
-        var response = await client.PostAsJsonAsync("poi", request, JsonOptions, cancellationToken);
+        var response = await client.PostAsJsonAsync("api/pois", request, JsonOptions, cancellationToken);
         return await ReadAsAsync<PoiDto>(response, cancellationToken);
     }
 
     public async Task<bool> UpdateAsync(int id, UpsertPoiRequestDto request, CancellationToken cancellationToken = default)
     {
         var client = CreateClient(authorized: true);
-        var response = await client.PutAsJsonAsync($"poi/{id}", request, JsonOptions, cancellationToken);
+        var response = await client.PutAsJsonAsync($"api/pois/{id}", request, JsonOptions, cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var client = CreateClient(authorized: true);
-        var response = await client.DeleteAsync($"poi/{id}", cancellationToken);
+        var response = await client.DeleteAsync($"api/pois/{id}", cancellationToken);
         return response.IsSuccessStatusCode;
     }
 }

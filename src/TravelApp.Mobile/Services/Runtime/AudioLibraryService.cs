@@ -14,6 +14,7 @@ public sealed class AudioLibraryService : IAudioLibraryService
     private readonly ILocalDatabaseService _localDatabaseService;
     private readonly IPoiApiClient _poiApiClient;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAudioPlayerService _audioPlayerService;
     private readonly ILogger<AudioLibraryService> _logger;
 
     private readonly object _sync = new();
@@ -33,11 +34,13 @@ public sealed class AudioLibraryService : IAudioLibraryService
         ILocalDatabaseService localDatabaseService,
         IPoiApiClient poiApiClient,
         IHttpClientFactory httpClientFactory,
+        IAudioPlayerService audioPlayerService,
         ILogger<AudioLibraryService> logger)
     {
         _localDatabaseService = localDatabaseService;
         _poiApiClient = poiApiClient;
         _httpClientFactory = httpClientFactory;
+        _audioPlayerService = audioPlayerService;
         _logger = logger;
 
         RestoreQueueState();
@@ -193,6 +196,25 @@ public sealed class AudioLibraryService : IAudioLibraryService
             _logger.LogWarning(ex, "Audio library remove failed for POI {PoiId}.", poiId);
             return false;
         }
+    }
+
+    public async Task<bool> PlayAsync(int poiId, string? languageCode, CancellationToken cancellationToken = default)
+    {
+        var normalizedLanguage = NormalizeLanguage(languageCode);
+        var pois = await EnsureCatalogueAsync(normalizedLanguage, cancellationToken);
+        var poi = pois.FirstOrDefault(x => x.Id == poiId);
+
+        if (poi is null)
+        {
+            return false;
+        }
+
+        await _audioPlayerService.PlayAsync(new AudioTriggerRequest(
+            ToContractPoi(poi),
+            new LocationSample(poi.Latitude, poi.Longitude, DateTimeOffset.UtcNow),
+            normalizedLanguage,
+            DateTimeOffset.UtcNow), cancellationToken);
+        return true;
     }
 
     public async Task<int> GetDownloadedCountAsync(string? languageCode, CancellationToken cancellationToken = default)
@@ -447,6 +469,7 @@ public sealed class AudioLibraryService : IAudioLibraryService
                 Title = x.Title,
                 Subtitle = x.Subtitle,
                 Description = x.Description ?? string.Empty,
+                SpeechText = x.SpeechText,
                 LanguageCode = NormalizeLanguage(x.PrimaryLanguage),
                 PrimaryLanguage = NormalizeLanguage(x.PrimaryLanguage),
                 ImageUrl = x.ImageUrl,
@@ -492,6 +515,30 @@ public sealed class AudioLibraryService : IAudioLibraryService
         }
 
         return FirstUrl(poi.AudioAssets);
+    }
+
+    private static PoiDto ToContractPoi(PoiMobileDto poi)
+    {
+        return new PoiDto
+        {
+            Id = poi.Id,
+            Title = poi.Title,
+            Subtitle = poi.Subtitle,
+            Description = poi.Description,
+            Category = poi.Category,
+            ImageUrl = poi.ImageUrl,
+            Location = poi.Location,
+            Latitude = poi.Latitude,
+            Longitude = poi.Longitude,
+            GeofenceRadiusMeters = poi.GeofenceRadiusMeters,
+            Duration = string.Empty,
+            Provider = null,
+            Credit = null,
+            PrimaryLanguage = poi.PrimaryLanguage,
+            SpeechText = poi.SpeechText,
+            AudioAssets = poi.AudioAssets.Select(audio => new PoiAudioDto(audio.LanguageCode, audio.AudioUrl, audio.Transcript, audio.IsGenerated)).ToList(),
+            Localizations = []
+        };
     }
 
     private static string BuildOfflineAudioPath(int poiId, string languageCode, string? url)

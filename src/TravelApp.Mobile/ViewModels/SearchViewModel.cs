@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Text;
 using TravelApp.Services;
 using TravelApp.Services.Abstractions;
 
@@ -9,6 +11,8 @@ namespace TravelApp.ViewModels;
 
 public class SearchViewModel : INotifyPropertyChanged
 {
+    private readonly List<SearchDestinationItem> _allDestinations = [];
+    private string _searchQuery = string.Empty;
     private bool _isFilterOpen;
     private bool _popularMostRated;
     private bool _tourEnabled = true;
@@ -17,7 +21,27 @@ public class SearchViewModel : INotifyPropertyChanged
     private readonly IPoiApiClient _poiApiClient;
 
     public ObservableCollection<SearchDestinationItem> PopularDestinations { get; }
+    public ObservableCollection<SearchDestinationItem> SearchResults { get; }
     public ObservableCollection<TourTypeOption> TourTypes { get; }
+
+    public string SearchHeaderText => string.IsNullOrWhiteSpace(SearchQuery) ? "Popular Destinations" : "Search Results";
+
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            if (_searchQuery == value)
+            {
+                return;
+            }
+
+            _searchQuery = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SearchHeaderText));
+            RebuildSearchResults();
+        }
+    }
 
     public bool IsFilterOpen
     {
@@ -80,11 +104,14 @@ public class SearchViewModel : INotifyPropertyChanged
     public ICommand ApplyFilterCommand { get; }
     public ICommand ClearFiltersCommand { get; }
     public ICommand ToggleTourTypeCommand { get; }
+    public ICommand SearchCommand { get; }
+    public ICommand OpenDestinationCommand { get; }
 
     public SearchViewModel(IPoiApiClient poiApiClient)
     {
         _poiApiClient = poiApiClient;
         PopularDestinations = [];
+        SearchResults = [];
         TourTypes = new ObservableCollection<TourTypeOption>
         {
             new() { Name = "Car tour", IsSelected = true },
@@ -101,6 +128,8 @@ public class SearchViewModel : INotifyPropertyChanged
         OpenFilterCommand = new Command(() => IsFilterOpen = true);
         CloseFilterCommand = new Command(() => IsFilterOpen = false);
         ApplyFilterCommand = new Command(() => IsFilterOpen = false);
+        SearchCommand = new Command(() => ApplySearch());
+        OpenDestinationCommand = new Command<SearchDestinationItem>(async item => await OpenDestinationAsync(item));
         ToggleTourTypeCommand = new Command<TourTypeOption>(option =>
         {
             if (option is null) return;
@@ -130,13 +159,15 @@ public class SearchViewModel : INotifyPropertyChanged
 
             // Group POIs by location and create destination items
             var destinations = pois
-                .GroupBy(p => p.Subtitle)
+                .GroupBy(p => string.IsNullOrWhiteSpace(p.Category) ? p.Subtitle : p.Category)
                 .Select(g => new SearchDestinationItem
                 {
                     Name = g.Key ?? "Unknown",
                     Type = "DESTINATION",
                     Count = g.Count(),
-                    ImageUrl = g.FirstOrDefault()?.ImageUrl ?? "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=600&fit=crop"
+                    ImageUrl = g.FirstOrDefault()?.ImageUrl ?? "https://placehold.co/1200x600/png?text=Travel+App",
+                    FirstPoiId = g.MinBy(p => p.Id)?.Id ?? 0,
+                    SearchText = string.Join(" ", g.SelectMany(p => new[] { p.Title, p.Subtitle, p.Description, p.Location, p.Category }).Where(x => !string.IsNullOrWhiteSpace(x)))
                 })
                 .ToList();
 
@@ -148,11 +179,16 @@ public class SearchViewModel : INotifyPropertyChanged
             {
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
+                    _allDestinations.Clear();
+                    _allDestinations.AddRange(destinations);
+
                     PopularDestinations.Clear();
-                    foreach (var destination in destinations)
+                    foreach (var destination in destinations.Take(2))
                     {
                         PopularDestinations.Add(destination);
                     }
+
+                    RebuildSearchResults();
                 });
             }
         }
@@ -166,10 +202,72 @@ public class SearchViewModel : INotifyPropertyChanged
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
+            _allDestinations.Clear();
             PopularDestinations.Clear();
-            PopularDestinations.Add(new() { Name = "🍲 Ho Chi Minh Food Tour", Type = "DESTINATION", Count = 3, ImageUrl = "https://images.unsplash.com/photo-1564078516577-e37020a4c3f0?w=1200&h=600&fit=crop" });
-            PopularDestinations.Add(new() { Name = "🍜 Hanoi Food Tour", Type = "DESTINATION", Count = 3, ImageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&h=600&fit=crop" });
+            var hcm = new SearchDestinationItem { Name = "🍲 Ho Chi Minh Food Tour", Type = "DESTINATION", Count = 3, ImageUrl = "https://placehold.co/1200x600/png?text=Ho+Chi+Minh+Food+Tour", FirstPoiId = 1, SearchText = "Chợ Bến Thành Phở Vĩnh Khánh Bến Bạch Đằng Ho Chi Minh Food Tour" };
+            var hanoi = new SearchDestinationItem { Name = "🍜 Hanoi Food Tour", Type = "DESTINATION", Count = 3, ImageUrl = "https://placehold.co/1200x600/png?text=Hanoi+Food+Tour", FirstPoiId = 4, SearchText = "Chùa Một Cột Phố Hàng Xanh Phố Hàng Dâu Hanoi Food Tour" };
+            _allDestinations.Add(hcm);
+            _allDestinations.Add(hanoi);
+            PopularDestinations.Add(hcm);
+            PopularDestinations.Add(hanoi);
+
+            RebuildSearchResults();
         });
+    }
+
+    private void ApplySearch()
+    {
+        OnPropertyChanged(nameof(SearchHeaderText));
+        RebuildSearchResults();
+        IsFilterOpen = false;
+    }
+
+    private void RebuildSearchResults()
+    {
+        var query = NormalizeText(SearchQuery);
+        IReadOnlyList<SearchDestinationItem> source = string.IsNullOrWhiteSpace(query)
+            ? PopularDestinations.ToList()
+            : _allDestinations.Where(item => NormalizeText(item.SearchText).Contains(query, StringComparison.OrdinalIgnoreCase) || NormalizeText(item.Name).Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            SearchResults.Clear();
+            foreach (var item in source)
+            {
+                SearchResults.Add(item);
+            }
+        });
+    }
+
+    private async Task OpenDestinationAsync(SearchDestinationItem? item)
+    {
+        if (item is null || item.FirstPoiId <= 0)
+        {
+            return;
+        }
+
+        await Shell.Current.GoToAsync($"TourDetailPage?tourId={item.FirstPoiId}");
+    }
+
+    private static string NormalizeText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(normalized.Length);
+
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(ch);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -186,6 +284,8 @@ public class SearchDestinationItem
     public required string Type { get; set; }
     public int Count { get; set; }
     public required string ImageUrl { get; set; }
+    public int FirstPoiId { get; set; }
+    public string SearchText { get; set; } = string.Empty;
 }
 
 public class TourTypeOption : INotifyPropertyChanged

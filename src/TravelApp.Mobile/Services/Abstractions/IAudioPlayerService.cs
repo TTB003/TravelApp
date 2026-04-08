@@ -9,6 +9,7 @@ public interface IAudioPlayerService
     bool IsPlaying { get; }
     int? CurrentPoiId { get; }
     string? CurrentPoiTitle { get; }
+    string? CurrentLanguageCode { get; }
 
     Task PlayAsync(AudioTriggerRequest request, CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);

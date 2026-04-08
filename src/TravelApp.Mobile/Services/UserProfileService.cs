@@ -6,7 +6,7 @@ public static class UserProfileService
     private static string _fullName = "Võ Quốc Khánh (Drakew)";
     private static string _phoneNumber = string.Empty;
     private static string _countryCode = "+971";
-    private static string _preferredLanguage = "en";
+    private static string _preferredLanguage = "vi";
 
     public static string Email
     {

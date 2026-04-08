@@ -175,6 +175,12 @@
                                 StrokeShape="RoundRectangle 18"
                                 BackgroundColor="{AppThemeBinding Light=White, Dark=#181C24}"
                                 Padding="12">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsPlaying}" Value="True">
+                                    <Setter Property="Stroke" Value="#3F7DFF" />
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F2F7FF, Dark=#162134}" />
+                                </DataTrigger>
+                            </Border.Triggers>
                             <Grid ColumnDefinitions="84,*,Auto" ColumnSpacing="10">
                                 <Border WidthRequest="84" HeightRequest="84" StrokeThickness="0" StrokeShape="RoundRectangle 12">
                                     <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
@@ -183,6 +189,12 @@
                                 <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
                                     <Label Text="{Binding Title}" FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
                                     <Label Text="{Binding Location}" FontSize="13" TextColor="{AppThemeBinding Light=#6E7380, Dark=#B4BDCF}" LineBreakMode="TailTruncation" />
+                                    <Label Text="Đang phát"
+                                           FontSize="11"
+                                           TextColor="#3F7DFF"
+                                           FontAttributes="Bold"
+                                           IsVisible="{Binding IsPlaying}">
+                                    </Label>
                                     <Label Text="{Binding FileSizeBytes, StringFormat='Offline size: {0} bytes'}"
                                            FontSize="12"
                                            TextColor="{AppThemeBinding Light=#8F95A3, Dark=#9EA8BC}">
@@ -197,6 +209,27 @@
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
+                                    <Button Text="Play"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.PlayCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="#3F7DFF"
+                                            TextColor="White"
+                                            FontSize="12"
+                                            CornerRadius="16"
+                                            HeightRequest="34"
+                                            WidthRequest="90">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsDownloaded}" Value="True">
+                                                <Setter Property="Text" Value="Play offline" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsPlaying}" Value="True">
+                                                <Setter Property="Text" Value="Playing" />
+                                                <Setter Property="IsEnabled" Value="False" />
+                                                <Setter Property="BackgroundColor" Value="#24A0FF" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+
                                     <Button Text="Download"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DownloadCommand}"
                                             CommandParameter="{Binding .}"

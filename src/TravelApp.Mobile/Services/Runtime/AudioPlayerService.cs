@@ -16,12 +16,15 @@ public class AudioPlayerService : IAudioPlayerService
     private readonly ILogger<AudioPlayerService> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    private long _playRequestVersion;
+    private CancellationTokenSource? _playRequestCts;
     private IAudioPlayer? _player;
     private Stream? _activeStream;
 
     public bool IsPlaying { get; private set; }
     public int? CurrentPoiId { get; private set; }
     public string? CurrentPoiTitle { get; private set; }
+    public string? CurrentLanguageCode { get; private set; }
 
     public AudioPlayerService(IAudioManager audioManager, IHttpClientFactory httpClientFactory, ILogService logService, ILogger<AudioPlayerService> logger)
     {
@@ -33,35 +36,53 @@ public class AudioPlayerService : IAudioPlayerService
 
     public async Task PlayAsync(AudioTriggerRequest request, CancellationToken cancellationToken = default)
     {
+        CancellationToken playToken;
+        long requestVersion;
+
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (IsPlaying && CurrentPoiId == request.Poi.Id)
+            if (IsPlaying && CurrentPoiId == request.Poi.Id && string.Equals(CurrentLanguageCode, request.LanguageCode, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogDebug("Audio play ignored: POI {PoiId} ({PoiTitle}) already playing.", request.Poi.Id, request.Poi.Title);
                 return;
             }
 
-            if (IsPlaying && CurrentPoiId != request.Poi.Id)
-            {
-                await StopInternalAsync($"switch-poi:{request.Poi.Id}");
-            }
-            else
-            {
-                await StopInternalAsync("prepare-play");
-            }
+            _playRequestVersion++;
+            requestVersion = _playRequestVersion;
 
-            var source = ResolveSource(request);
-            if (source is null)
-            {
-                _logger.LogWarning("Audio source not found for POI {PoiId} ({PoiTitle}).", request.Poi.Id, request.Poi.Title);
-                return;
-            }
+            _playRequestCts?.Cancel();
+            _playRequestCts?.Dispose();
+            _playRequestCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            playToken = _playRequestCts.Token;
 
-            var stream = await OpenStreamAsync(source, cancellationToken);
-            if (stream is null)
+            await StopInternalAsync(IsPlaying && CurrentPoiId != request.Poi.Id ? $"switch-poi:{request.Poi.Id}" : "prepare-play");
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        var source = ResolveSource(request);
+        if (source is null)
+        {
+            _logger.LogWarning("Audio source not found for POI {PoiId} ({PoiTitle}).", request.Poi.Id, request.Poi.Title);
+            return;
+        }
+
+        var stream = await OpenStreamAsync(source, playToken);
+        if (stream is null)
+        {
+            _logger.LogWarning("Audio stream open failed for POI {PoiId} ({PoiTitle}).", request.Poi.Id, request.Poi.Title);
+            return;
+        }
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (requestVersion != _playRequestVersion || _playRequestCts is null || _playRequestCts.IsCancellationRequested)
             {
-                _logger.LogWarning("Audio stream open failed for POI {PoiId} ({PoiTitle}).", request.Poi.Id, request.Poi.Title);
+                await stream.DisposeAsync();
                 return;
             }
 
@@ -74,6 +95,7 @@ public class AudioPlayerService : IAudioPlayerService
             IsPlaying = true;
             CurrentPoiId = request.Poi.Id;
             CurrentPoiTitle = request.Poi.Title;
+            CurrentLanguageCode = request.LanguageCode;
             RaisePlaybackStateChanged();
             _logger.LogInformation(
                 "Audio started: POI {PoiId} ({PoiTitle}), source={SourceType}.",
@@ -98,7 +120,10 @@ public class AudioPlayerService : IAudioPlayerService
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _playRequestCts?.Cancel();
             await StopInternalAsync("manual-stop");
+            _playRequestCts?.Dispose();
+            _playRequestCts = null;
         }
         finally
         {
@@ -129,6 +154,7 @@ public class AudioPlayerService : IAudioPlayerService
         IsPlaying = false;
         CurrentPoiId = null;
         CurrentPoiTitle = null;
+        CurrentLanguageCode = null;
         RaisePlaybackStateChanged();
 
         if (wasPlaying)
@@ -136,7 +162,7 @@ public class AudioPlayerService : IAudioPlayerService
             _logger.LogInformation("Audio stopped: POI {PoiId} ({PoiTitle}), reason={Reason}.", poiId, poiTitle, reason);
             _logService.Log("Audio", $"STOP poi={poiId} ({poiTitle}) reason={reason}");
         }
-        }
+    }
 
     private void RaisePlaybackStateChanged()
     {

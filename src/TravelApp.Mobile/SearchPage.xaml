@@ -61,6 +61,9 @@
                         Padding="14,0">
                     <Grid ColumnDefinitions="*,46">
                         <Entry Placeholder="Explore destinations"
+                               Text="{Binding SearchQuery}"
+                               ReturnType="Search"
+                               ReturnCommand="{Binding SearchCommand}"
                                PlaceholderColor="{AppThemeBinding Light=#9A9AA0, Dark=#8E97AA}"
                                TextColor="{AppThemeBinding Light=#242833, Dark=#F3F5FA}"
                                FontSize="18"
@@ -75,6 +78,9 @@
                                 HeightRequest="40"
                                 HorizontalOptions="Center"
                                 VerticalOptions="Center">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding SearchCommand}" />
+                            </Border.GestureRecognizers>
                             <Path Data="M15.5,14H14.71L14.43,13.73C15.41,12.59 16,11.11 16,9.5C16,5.91 13.09,3 9.5,3C5.91,3 3,5.91 3,9.5C3,13.09 5.91,16 9.5,16C11.11,16 12.59,15.41 13.73,14.43L14,14.71V15.5L19,20.49L20.49,19L15.5,14M9.5,14C7.01,14 5,11.99 5,9.5C5,7.01 7.01,5 9.5,5C11.99,5 14,7.01 14,9.5C14,11.99 11.99,14 9.5,14Z"
                                   Fill="White"
                                   WidthRequest="18"
@@ -85,18 +91,22 @@
                     </Grid>
                 </Border>
 
-                <Label Text="Popular Destinations"
+                <Label Text="{Binding SearchHeaderText}"
                        FontSize="20"
                        TextColor="{AppThemeBinding Light=#1B1F28, Dark=#F3F5FA}"
                        FontAttributes="Bold" />
 
-                <CollectionView ItemsSource="{Binding PopularDestinations}" SelectionMode="None">
+                <CollectionView ItemsSource="{Binding SearchResults}" SelectionMode="None">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
                     </CollectionView.ItemsLayout>
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Border StrokeThickness="0" StrokeShape="RoundRectangle 18" HeightRequest="130">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenDestinationCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                                 <Grid>
                                     <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
                                     <BoxView Color="#40000000" />

@@ -57,6 +57,12 @@
                        LineBreakMode="WordWrap"
                        MaxLines="3" />
 
+                <Label Text="{Binding LanguageText}"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#6E7380, Dark=#B4BDCF}"
+                       HorizontalTextAlignment="Center" />
+
                 <Button Text="{Binding ActionButtonText}"
                         Command="{Binding ActionCommand}"
                         BackgroundColor="#E31667"

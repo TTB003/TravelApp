@@ -15,6 +15,7 @@ public class PoiMobileDto
     public double? DistanceMeters { get; set; }
     public double GeofenceRadiusMeters { get; set; }
     public string Category { get; set; } = string.Empty;
+    public string? SpeechText { get; set; }
     public List<PoiAudioMobileDto> AudioAssets { get; set; } = [];
 }
 

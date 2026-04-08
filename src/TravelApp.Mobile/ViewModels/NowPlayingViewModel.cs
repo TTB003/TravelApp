@@ -12,6 +12,7 @@ public sealed class NowPlayingViewModel : INotifyPropertyChanged, IDisposable
 
     private bool _isPlaying;
     private string _poiTitle = "Chưa phát audio";
+    private string _languageCode = string.Empty;
 
     public bool IsPlaying
     {
@@ -45,7 +46,26 @@ public sealed class NowPlayingViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public string StatusText => IsPlaying ? "Đang phát" : "Đã dừng";
+    public string LanguageCode
+    {
+        get => _languageCode;
+        private set
+        {
+            if (_languageCode == value)
+            {
+                return;
+            }
+
+            _languageCode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LanguageText));
+            OnPropertyChanged(nameof(StatusText));
+        }
+    }
+
+    public string LanguageText => string.IsNullOrWhiteSpace(LanguageCode) ? "Ngôn ngữ: --" : $"Ngôn ngữ: {LanguageCode}";
+
+    public string StatusText => IsPlaying ? $"Đang phát • {LanguageText}" : "Đã dừng";
 
     public string ActionButtonText => IsPlaying ? "Stop" : "Back";
 
@@ -69,18 +89,19 @@ public sealed class NowPlayingViewModel : INotifyPropertyChanged, IDisposable
         });
 
         _audioPlayerService.PlaybackStateChanged += OnPlaybackStateChanged;
-        ApplyState(_audioPlayerService.IsPlaying, _audioPlayerService.CurrentPoiTitle);
+        ApplyState(_audioPlayerService.IsPlaying, _audioPlayerService.CurrentPoiTitle, _audioPlayerService.CurrentLanguageCode);
     }
 
     private void OnPlaybackStateChanged(object? sender, AudioPlaybackStateChangedEventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(() => ApplyState(e.IsPlaying, e.PoiTitle));
+        MainThread.BeginInvokeOnMainThread(() => ApplyState(e.IsPlaying, e.PoiTitle, _audioPlayerService.CurrentLanguageCode));
     }
 
-    private void ApplyState(bool isPlaying, string? poiTitle)
+    private void ApplyState(bool isPlaying, string? poiTitle, string? languageCode)
     {
         IsPlaying = isPlaying;
         PoiTitle = isPlaying ? (string.IsNullOrWhiteSpace(poiTitle) ? "Địa điểm hiện tại" : poiTitle) : "Chưa phát audio";
+        LanguageCode = isPlaying ? (string.IsNullOrWhiteSpace(languageCode) ? "--" : languageCode) : string.Empty;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

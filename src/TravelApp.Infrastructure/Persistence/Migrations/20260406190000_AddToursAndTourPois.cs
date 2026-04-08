@@ -67,8 +67,8 @@ public partial class AddToursAndTourPois : Migration
             columns: new[] { "Id", "AnchorPoiId", "Name", "Description", "CoverImageUrl", "PrimaryLanguage", "IsPublished", "CreatedAtUtc", "UpdatedAtUtc" },
             values: new object[,]
             {
-                { 1, 1, "HCM Food Tour", "Tour ẩm thực Sài Gòn với các điểm dừng được sắp xếp theo lộ trình thật.", "https://images.unsplash.com/photo-1555521760-cb7ebb6a9c62?w=1200&h=800&fit=crop", "vi", true, new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), null },
-                { 2, 4, "Hanoi Food Tour", "Tour ẩm thực Hà Nội với các mốc waypoint, bản đồ và audio tự động.", "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&h=800&fit=crop", "vi", true, new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), null }
+                { 1, 1, "HCM Food Tour", "Tour ẩm thực Sài Gòn với các điểm dừng được sắp xếp theo lộ trình thật.", "https://placehold.co/1200x800/png?text=HCM+Food+Tour", "vi", true, new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), null },
+                { 2, 4, "Hanoi Food Tour", "Tour ẩm thực Hà Nội với các mốc waypoint, bản đồ và audio tự động.", "https://placehold.co/1200x800/png?text=Hanoi+Food+Tour", "vi", true, new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), null }
             });
 
         migrationBuilder.InsertData(

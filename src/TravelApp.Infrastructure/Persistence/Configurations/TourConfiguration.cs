@@ -47,7 +47,7 @@ public class TourConfiguration : IEntityTypeConfiguration<Tour>
                 AnchorPoiId = 1,
                 Name = "HCM Food Tour",
                 Description = "Tour ẩm thực Sài Gòn với các điểm dừng được sắp xếp theo lộ trình thật.",
-                CoverImageUrl = "https://images.unsplash.com/photo-1555521760-cb7ebb6a9c62?w=1200&h=800&fit=crop",
+                CoverImageUrl = "https://placehold.co/1200x800/png?text=HCM+Food+Tour",
                 PrimaryLanguage = "vi",
                 IsPublished = true,
                 CreatedAtUtc = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero)
@@ -58,7 +58,7 @@ public class TourConfiguration : IEntityTypeConfiguration<Tour>
                 AnchorPoiId = 4,
                 Name = "Hanoi Food Tour",
                 Description = "Tour ẩm thực Hà Nội với các mốc waypoint, bản đồ và audio tự động.",
-                CoverImageUrl = "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&h=800&fit=crop",
+                CoverImageUrl = "https://placehold.co/1200x800/png?text=Hanoi+Food+Tour",
                 PrimaryLanguage = "vi",
                 IsPublished = true,
                 CreatedAtUtc = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero)

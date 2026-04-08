@@ -203,6 +203,7 @@ public class PoiQueryService : IPoiQueryService
             DistanceMeters = distanceByPoiId is not null && distanceByPoiId.TryGetValue(poi.Id, out var distance) ? distance : null,
             GeofenceRadiusMeters = poi.GeofenceRadiusMeters,
             Category = poi.Category ?? string.Empty,
+            SpeechText = poi.SpeechText,
             AudioAssets = poi.AudioAssets
                 .OrderByDescending(x => string.Equals(x.LanguageCode, requestedLanguage, StringComparison.OrdinalIgnoreCase))
                 .ThenByDescending(x => string.Equals(x.LanguageCode, primaryLanguage, StringComparison.OrdinalIgnoreCase))
@@ -272,6 +273,7 @@ public class PoiQueryService : IPoiQueryService
         poi.Longitude = request.Longitude;
         poi.GeofenceRadiusMeters = request.GeofenceRadiusMeters;
         poi.PrimaryLanguage = NormalizeLanguageCode(request.PrimaryLanguage);
+        poi.SpeechText = request.SpeechText?.Trim();
 
         poi.Localizations.Clear();
         foreach (var localization in request.Localizations)

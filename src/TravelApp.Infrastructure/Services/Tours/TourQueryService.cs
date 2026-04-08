@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using TravelApp.Application.Abstractions.Tours;
 using TravelApp.Application.Dtos.Pois;
 using TravelApp.Application.Dtos.Tours;
@@ -19,15 +20,24 @@ public class TourQueryService : ITourQueryService
     {
         var normalizedLanguage = NormalizeLanguageCode(languageCode);
 
-        var tour = await _dbContext.Tours
-            .AsNoTracking()
-            .Include(x => x.TourPois)
-                .ThenInclude(x => x.Poi)
-                    .ThenInclude(x => x.Localizations)
-            .Include(x => x.TourPois)
-                .ThenInclude(x => x.Poi)
-                    .ThenInclude(x => x.AudioAssets)
-            .FirstOrDefaultAsync(x => x.AnchorPoiId == anchorPoiId && x.IsPublished, cancellationToken);
+        TravelApp.Domain.Entities.Tour? tour;
+
+        try
+        {
+            tour = await _dbContext.Tours
+                .AsNoTracking()
+                .Include(x => x.TourPois)
+                    .ThenInclude(x => x.Poi)
+                        .ThenInclude(x => x.Localizations)
+                .Include(x => x.TourPois)
+                    .ThenInclude(x => x.Poi)
+                        .ThenInclude(x => x.AudioAssets)
+                .FirstOrDefaultAsync(x => x.AnchorPoiId == anchorPoiId && x.IsPublished, cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number == 208)
+        {
+            return null;
+        }
 
         if (tour is null)
         {
@@ -50,7 +60,7 @@ public class TourQueryService : ITourQueryService
             AnchorPoiId = tour.AnchorPoiId,
             Name = tour.Name,
             Description = tour.Description,
-            CoverImageUrl = tour.CoverImageUrl,
+            CoverImageUrl = NormalizeCoverImageUrl(tour.CoverImageUrl, tour.Name),
             PrimaryLanguage = NormalizeLanguageCode(tour.PrimaryLanguage),
             TotalDistanceMeters = waypoints.Sum(x => x.DistanceFromPreviousMeters ?? 0),
             Waypoints = waypoints
@@ -79,6 +89,7 @@ public class TourQueryService : ITourQueryService
             DistanceMeters = null,
             GeofenceRadiusMeters = poi.GeofenceRadiusMeters,
             Category = poi.Category ?? string.Empty,
+            SpeechText = poi.SpeechText,
             AudioAssets = poi.AudioAssets
                 .OrderByDescending(x => string.Equals(x.LanguageCode, languageCode, StringComparison.OrdinalIgnoreCase))
                 .ThenByDescending(x => string.Equals(x.LanguageCode, primaryLanguage, StringComparison.OrdinalIgnoreCase))
@@ -97,5 +108,16 @@ public class TourQueryService : ITourQueryService
     private static string NormalizeLanguageCode(string? languageCode)
     {
         return string.IsNullOrWhiteSpace(languageCode) ? "en" : languageCode.Trim().ToLowerInvariant();
+    }
+
+    private static string NormalizeCoverImageUrl(string? coverImageUrl, string tourName)
+    {
+        if (!string.IsNullOrWhiteSpace(coverImageUrl)
+            && !coverImageUrl.Contains("unsplash.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return coverImageUrl;
+        }
+
+        return $"https://placehold.co/1200x800/png?text={Uri.EscapeDataString(tourName)}";
     }
 }

@@ -47,7 +47,9 @@ public class AutoAudioTriggerService : IAutoAudioTriggerService
             _lastTriggerByPoi[transitionEvent.Poi.Id] = now;
         }
 
-        var languageCode = transitionEvent.Poi.PrimaryLanguage ?? "en";
+        var languageCode = string.IsNullOrWhiteSpace(transitionEvent.Poi.PrimaryLanguage)
+            ? "vi"
+            : transitionEvent.Poi.PrimaryLanguage;
         var request = new AudioTriggerRequest(transitionEvent.Poi, transitionEvent.UserLocation, languageCode, now);
         _logger.LogInformation("Audio trigger: POI {PoiId} ({PoiTitle}), language={LanguageCode}.", request.Poi.Id, request.Poi.Title, request.LanguageCode);
         AudioTriggerRequested?.Invoke(this, request);

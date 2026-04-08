@@ -11,6 +11,7 @@ namespace TravelApp.ViewModels;
 public sealed class MyAudioLibraryViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly IAudioLibraryService _audioLibraryService;
+    private readonly IAudioPlayerService _audioPlayerService;
     private readonly List<AudioLibraryItem> _allItems = [];
 
     private bool _isLoading;
@@ -109,20 +110,24 @@ public sealed class MyAudioLibraryViewModel : INotifyPropertyChanged, IDisposabl
     public ICommand RefreshCommand { get; }
     public ICommand DownloadCommand { get; }
     public ICommand RemoveCommand { get; }
+    public ICommand PlayCommand { get; }
     public ICommand DownloadAllCommand { get; }
     public ICommand RetryFailedCommand { get; }
     public ICommand SetFilterCommand { get; }
 
-    public MyAudioLibraryViewModel(IAudioLibraryService audioLibraryService)
+    public MyAudioLibraryViewModel(IAudioLibraryService audioLibraryService, IAudioPlayerService audioPlayerService)
     {
         _audioLibraryService = audioLibraryService;
+        _audioPlayerService = audioPlayerService;
         _audioLibraryService.LibraryChanged += OnLibraryChanged;
         _audioLibraryService.DownloadProgressChanged += OnDownloadProgressChanged;
+        _audioPlayerService.PlaybackStateChanged += OnPlaybackStateChanged;
 
         BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
         RefreshCommand = new Command(async () => await RefreshAsync());
         DownloadCommand = new Command<AudioLibraryItem>(async item => await DownloadAsync(item));
         RemoveCommand = new Command<AudioLibraryItem>(async item => await RemoveAsync(item));
+        PlayCommand = new Command<AudioLibraryItem>(async item => await PlayAsync(item));
         DownloadAllCommand = new Command(async () => await DownloadAllAsync());
         RetryFailedCommand = new Command(async () => await RetryFailedAsync());
         SetFilterCommand = new Command<string>(SetFilter);
@@ -147,6 +152,7 @@ public sealed class MyAudioLibraryViewModel : INotifyPropertyChanged, IDisposabl
             {
                 _allItems.Clear();
                 _allItems.AddRange(items);
+                ApplyPlaybackState();
                 FailedCount = failedCount;
 
                 RebuildFilteredItems();
@@ -238,6 +244,67 @@ public sealed class MyAudioLibraryViewModel : INotifyPropertyChanged, IDisposabl
 
         await RefreshAsync();
         IsLoading = false;
+    }
+
+    private async Task PlayAsync(AudioLibraryItem? item)
+    {
+        if (item is null || IsLoading)
+        {
+            return;
+        }
+
+        StatusText = $"Đang phát: {item.Title}";
+        var started = await _audioLibraryService.PlayAsync(item.PoiId, item.LanguageCode);
+        StatusText = started ? $"Đang phát offline: {item.Title}" : $"Không thể phát: {item.Title}";
+        ApplyPlaybackState();
+    }
+
+    private void OnPlaybackStateChanged(object? sender, AudioPlaybackStateChangedEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ApplyPlaybackState();
+
+            if (e.IsPlaying)
+            {
+                var activeItem = _allItems.FirstOrDefault(x => IsSamePlayback(x, _audioPlayerService.CurrentPoiId, _audioPlayerService.CurrentLanguageCode));
+                StatusText = activeItem is null ? "Đang phát audio" : $"Đang phát: {activeItem.Title}";
+            }
+            else if (StatusText.StartsWith("Đang phát", StringComparison.OrdinalIgnoreCase))
+            {
+                StatusText = "Sẵn sàng tải audio offline";
+            }
+        });
+    }
+
+    private void ApplyPlaybackState()
+    {
+        var currentPoiId = _audioPlayerService.CurrentPoiId;
+        var currentLanguage = _audioPlayerService.CurrentLanguageCode;
+
+        foreach (var item in _allItems)
+        {
+            item.IsPlaying = IsSamePlayback(item, currentPoiId, currentLanguage);
+        }
+
+        RebuildFilteredItems();
+        RaiseFilterHeadersChanged();
+        OnPropertyChanged(nameof(StorageSummary));
+    }
+
+    private static bool IsSamePlayback(AudioLibraryItem item, int? currentPoiId, string? currentLanguageCode)
+    {
+        if (!currentPoiId.HasValue || item.PoiId != currentPoiId.Value)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(currentLanguageCode))
+        {
+            return true;
+        }
+
+        return string.Equals(item.LanguageCode, currentLanguageCode, StringComparison.OrdinalIgnoreCase);
     }
 
     private void SetFilter(string? filter)
@@ -381,5 +448,6 @@ public sealed class MyAudioLibraryViewModel : INotifyPropertyChanged, IDisposabl
     {
         _audioLibraryService.LibraryChanged -= OnLibraryChanged;
         _audioLibraryService.DownloadProgressChanged -= OnDownloadProgressChanged;
+        _audioPlayerService.PlaybackStateChanged -= OnPlaybackStateChanged;
     }
 }
