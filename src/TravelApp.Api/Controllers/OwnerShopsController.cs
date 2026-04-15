@@ -28,7 +28,6 @@ public class OwnerShopsController : ControllerBase
         var shop = await _shopService.CreateShopAsync(ownerId, request);
         return CreatedAtAction(nameof(GetMine), new { id = shop.Id }, shop);
     }
-
     [Authorize(Roles = "Owner")]
     [HttpGet("me")]
     public async Task<IActionResult> GetMine()
@@ -38,6 +37,23 @@ public class OwnerShopsController : ControllerBase
             return Unauthorized();
 
         var shop = await _shopService.GetByOwnerAsync(ownerId);
+        return shop is null ? NotFound() : Ok(shop);
+    }
+
+    // Public endpoints to browse shops without authentication
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var shops = await _shopService.GetAllAsync();
+        return Ok(shops);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var shop = await _shopService.GetByIdAsync(id);
         return shop is null ? NotFound() : Ok(shop);
     }
 }

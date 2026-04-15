@@ -90,6 +90,8 @@
 	  <None Remove="tests\**\*" />
 	</ItemGroup>
 
+	<!-- Keep network_security_config.xml as AndroidResource so manifest can reference @xml/network_security_config -->
+
 	<ItemGroup>
 	  <MauiXaml Update="BookmarksHistoryPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>

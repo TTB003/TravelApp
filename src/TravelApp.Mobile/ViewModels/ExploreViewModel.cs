@@ -156,14 +156,7 @@ public class ExploreViewModel : INotifyPropertyChanged
         {
             if (item is null) return;
 
-            // Check if user is logged in
-            if (!AuthStateService.IsLoggedIn)
-            {
-                await Shell.Current.DisplayAlert("Login Required", "Please sign in to view tour details.", "OK");
-                await Shell.Current.GoToAsync("LoginPage");
-                return;
-            }
-
+            // Allow anonymous users to view tour details. Only require authentication for owner-specific actions.
             await _bookmarkHistoryService.AddHistoryAsync(item);
             await Shell.Current.GoToAsync($"TourDetailPage?tourId={item.Id}");
         });

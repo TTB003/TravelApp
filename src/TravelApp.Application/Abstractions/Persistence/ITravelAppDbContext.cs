@@ -16,6 +16,7 @@ public interface ITravelAppDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<Shop> Shops { get; }
     DbSet<ShopImage> ShopImages { get; }
+    DbSet<PoiEvent> PoiEvents { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

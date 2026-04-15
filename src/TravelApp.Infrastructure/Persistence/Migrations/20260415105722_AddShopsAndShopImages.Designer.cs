@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TravelApp.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TravelApp.Infrastructure.Persistence;
 namespace TravelApp.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(TravelAppDbContext))]
-    partial class TravelAppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260415105722_AddShopsAndShopImages")]
+    partial class AddShopsAndShopImages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -140,37 +143,6 @@ namespace TravelApp.Infrastructure.Persistence.Migrations
                     b.HasIndex("PoiId", "LanguageCode");
 
                     b.ToTable("Audio", (string)null);
-                });
-
-            modelBuilder.Entity("TravelApp.Domain.Entities.PoiEvent", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("EventType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("MetadataJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("PoiId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("TourId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PoiEvents");
                 });
 
             modelBuilder.Entity("TravelApp.Domain.Entities.PoiLocalization", b =>

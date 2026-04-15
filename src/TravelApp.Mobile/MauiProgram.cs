@@ -23,12 +23,9 @@ namespace TravelApp
         private static string ResolveApiBaseUrl()
         {
 #if DEBUG
-            if (DeviceInfo.Platform == DevicePlatform.Android)
-            {
-                return "http://10.0.2.2:5293/";
-            }
-
-            return "http://localhost:5293/";
+            // Use the developer machine IP so physical devices and emulators can reach the API.
+            // The server will be configured to listen on http://0.0.0.0:5001.
+            return "http://192.168.5.36:5001/";
 #else
             return "https://api.your-domain.com/";
 #endif

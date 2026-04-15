@@ -40,15 +40,30 @@ public class PoisController : Controller
         }
 
         var request = ToRequest(model);
-        var result = await _apiClient.CreatePoiAsync(request, cancellationToken);
-        if (result is null || result.Id <= 0)
+        try
+        {
+            var result = await _apiClient.CreatePoiAsync(request, cancellationToken);
+            if (result is null || result.Id <= 0)
+            {
+                EnsureMinimumRows(model);
+                ModelState.AddModelError(string.Empty, "Không thể tạo POI. Vui lòng kiểm tra kết nối API và thử lại.");
+                return View(model);
+            }
+
+            return RedirectToAction(nameof(Edit), new { id = result.Id });
+        }
+        catch (InvalidOperationException ex)
         {
             EnsureMinimumRows(model);
-            ModelState.AddModelError(string.Empty, "Không thể tạo POI. Vui lòng kiểm tra kết nối API và thử lại.");
+            ModelState.AddModelError(string.Empty, ex.Message);
             return View(model);
         }
-
-        return RedirectToAction(nameof(Edit), new { id = result.Id });
+        catch (Exception)
+        {
+            EnsureMinimumRows(model);
+            ModelState.AddModelError(string.Empty, "Không thể tạo POI do lỗi phía server. Vui lòng thử lại sau.");
+            return View(model);
+        }
     }
 
     [Authorize(Roles = "Owner,Admin,SuperAdmin")]
@@ -60,7 +75,8 @@ public class PoisController : Controller
             return NotFound();
         }
 
-        return View(ToEditorModel(poi));
+        var baseUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host.Value;
+        return View(ToEditorModel(poi, baseUrl));
     }
 
     [HttpPost]
@@ -97,9 +113,9 @@ public class PoisController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private static PoiEditorViewModel ToEditorModel(PoiMobileDto poi)
+    private PoiEditorViewModel ToEditorModel(PoiMobileDto poi, string baseUrl)
     {
-        var qrContent = BuildPoiQrContent(poi.Id);
+        var qrContent = BuildPoiQrContent(poi.Id, baseUrl);
         var model = new PoiEditorViewModel
         {
             Id = poi.Id,
@@ -211,13 +227,17 @@ public class PoisController : Controller
         };
     }
 
-    private static string BuildPoiQrContent(int poiId)
+    private static string BuildPoiQrContent(int poiId, string baseUrl)
     {
-        return $"travelapp://poi/{poiId}";
+        // Ensure no trailing slash
+        if (baseUrl.EndsWith('/')) baseUrl = baseUrl.TrimEnd('/');
+        return $"{baseUrl}/poi/detail/{poiId}";
     }
 
     private static string BuildQrImageUrl(string qrContent)
     {
         return $"https://quickchart.io/qr?size=260&text={Uri.EscapeDataString(qrContent)}";
     }
+    // No-op to ensure file is treated as changed/saved after signature updates
+    private const string _noOpFileSaved = "";
 }

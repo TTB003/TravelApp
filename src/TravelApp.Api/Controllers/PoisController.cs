@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TravelApp.Application.Abstractions.Pois;
 using TravelApp.Application.Dtos.Pois;
@@ -6,6 +7,7 @@ namespace TravelApp.Api.Controllers;
 
 [ApiController]
 [Route("api/pois")]
+[AllowAnonymous]
 public class PoisController : ControllerBase
 {
     private readonly IPoiQueryService _poiQueryService;
@@ -54,8 +56,20 @@ public class PoisController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] UpsertPoiRequestDto request, CancellationToken cancellationToken)
     {
-        var result = await _poiQueryService.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = result.Id, lang = result.LanguageCode }, result);
+        try
+        {
+            var result = await _poiQueryService.CreateAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id, lang = result.LanguageCode }, result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            // Return generic error for client but include message to help admin debugging
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}")]

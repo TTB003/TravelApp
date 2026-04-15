@@ -21,6 +21,7 @@ public class TravelAppDbContext : DbContext, ITravelAppDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<ShopImage> ShopImages => Set<ShopImage>();
+    public DbSet<PoiEvent> PoiEvents => Set<PoiEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

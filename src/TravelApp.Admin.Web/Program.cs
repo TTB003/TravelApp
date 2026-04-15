@@ -35,6 +35,13 @@ builder.Services.AddHttpClient<ITravelAppApiClient, TravelAppApiClient>((sp, cli
 {
     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TravelAppApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl);
+}).ConfigurePrimaryHttpMessageHandler(sp =>
+{
+    // In development accept self-signed certs
+    return new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+    };
 });
 
 var app = builder.Build();

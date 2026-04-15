@@ -1,11 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TravelApp.Application.Dtos.Tours;
 using TravelApp.Application.Abstractions.Tours;
+using TravelApp.Application.Dtos.Tours;
 
 namespace TravelApp.Api.Controllers;
 
 [ApiController]
 [Route("api/tours")]
+[AllowAnonymous]
 public class ToursController : ControllerBase
 {
     private readonly ITourQueryService _tourQueryService;

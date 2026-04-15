@@ -6,6 +6,7 @@ namespace TravelApp.Admin.Web.Services;
 
 public interface ITravelAppApiClient
 {
+    // No-op patch: trigger update (interface unchanged)
     Task<IReadOnlyList<UserAdminDto>> GetUsersAsync(CancellationToken cancellationToken = default);
     Task<UserAdminDto?> GetUserAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RoleAdminDto>> GetRolesAsync(CancellationToken cancellationToken = default);
@@ -19,9 +20,13 @@ public interface ITravelAppApiClient
     Task<bool> UpdatePoiAsync(int id, UpsertPoiRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> DeletePoiAsync(int id, CancellationToken cancellationToken = default);
 
+    Task<TravelApp.Application.Dtos.Metrics.MetricsOverviewDto?> GetMetricsOverviewAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TravelApp.Application.Dtos.Metrics.EventAdminDto>> GetRecentEventsAsync(int limit = 50, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<TourAdminDto>> GetToursAsync(CancellationToken cancellationToken = default);
     Task<TourAdminDto?> GetTourAsync(int id, CancellationToken cancellationToken = default);
     Task<TourAdminDto> CreateTourAsync(UpsertTourRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> UpdateTourAsync(int id, UpsertTourRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> DeleteTourAsync(int id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<object>> GetTopPoisAsync(int limit = 10, CancellationToken cancellationToken = default);
 }

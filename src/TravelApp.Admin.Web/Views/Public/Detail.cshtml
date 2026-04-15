@@ -1,0 +1,204 @@
+@model TravelApp.Application.Dtos.Pois.PoiMobileDto?
+@{
+    Layout = null; // public minimal layout
+    // Build QR link using configured Admin.Web base URL if available; fallback to developer IP
+    var configuredHost = ViewData["AdminHost"] as string;
+    var adminHost = !string.IsNullOrWhiteSpace(configuredHost) ? configuredHost : "http://192.168.5.36";
+    var adminPort = Context?.Request?.Host.Port ?? 0;
+    var baseUrl = adminHost + (adminPort != 0 ? ":" + adminPort : string.Empty);
+    var qrLink = baseUrl + "/public/poi/detail/" + (Model?.Id ?? 0);
+    var qrImageUrl = "https://quickchart.io/qr?size=400&text=" + Uri.EscapeDataString(qrLink ?? string.Empty);
+
+    // gather available languages from localizations, audio assets and speech texts
+    var langSet = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    if (Model?.Localizations != null)
+    {
+        foreach (var l in Model.Localizations)
+        {
+            if (!string.IsNullOrWhiteSpace(l.LanguageCode)) langSet.Add(l.LanguageCode);
+        }
+    }
+    if (Model?.AudioAssets != null)
+    {
+        foreach (var a in Model.AudioAssets)
+        {
+            if (!string.IsNullOrWhiteSpace(a.LanguageCode)) langSet.Add(a.LanguageCode);
+        }
+    }
+    if (Model?.SpeechTexts != null)
+    {
+        foreach (var s in Model.SpeechTexts)
+        {
+            if (!string.IsNullOrWhiteSpace(s.LanguageCode)) langSet.Add(s.LanguageCode);
+        }
+    }
+    var availableLangs = langSet.ToList();
+}
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <title>POI Detail</title>
+    <style>
+        body { padding: 0; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#f6f7fb; }
+        .cover { width: 100%; height: 50vh; object-fit: cover; display:block; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+        .page-card { margin:  -3.5rem 1rem 1rem 1rem; border-radius: 14px; background: #fff; box-shadow: 0 8px 30px rgba(20,20,50,0.08); overflow: visible; }
+        .content { padding: 1rem; }
+        .sticky-actions { position: fixed; left: 0; right: 0; bottom: 0; padding: 0.75rem; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.98)); }
+        .big-btn { padding: .75rem 1rem; border-radius: 12px; font-weight:600; font-size:1rem; }
+        .spinner-center { display:flex; align-items:center; justify-content:center; height:60vh; }
+        /* Language chip */
+        .chip { border-radius: 999px; padding: .25rem .6rem; font-weight:600; font-size:.85rem; border: 1px solid rgba(0,0,0,0.06); background: rgba(255,255,255,0.9); }
+        .chip.active { background: linear-gradient(90deg,#6d5cff,#2ac7c7); color: #fff; border-color: transparent; }
+        /* Player */
+        .player-card { margin: .5rem 0; padding: .85rem; border-radius: 12px; background: linear-gradient(180deg,#5d4bff, #2ac7c7); color: #fff; box-shadow: 0 6px 20px rgba(45,35,120,0.12); }
+        .player-controls { display:flex; align-items:center; gap:.75rem; }
+        .player-play { width:44px; height:44px; border-radius:50%; background: rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+        .progress-rounded { height:10px; border-radius:999px; overflow:hidden; background: rgba(255,255,255,0.12); }
+        .progress-bar-gradient { height:100%; width:0%; background: linear-gradient(90deg,#ffd166,#f06292); border-radius:999px; }
+        /* QR block */
+        .qr-block { margin: 1.25rem 1rem 3.5rem 1rem; text-align:center; }
+        .qr-card { background:#fff; padding:1rem; border-radius:12px; display:inline-block; box-shadow: 0 8px 24px rgba(20,20,50,0.06); }
+        .qr-caption { font-size:.85rem; color:#6b7280; margin-top:.5rem; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        @if (Model is null)
+        {
+            <div class="spinner-center">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            </div>
+        }
+        else
+        {
+            <img id="cover" class="cover" src="@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "https://placehold.co/1200x800/png?text=POI" : Model.ImageUrl)" alt="cover" />
+            <div class="page-card">
+                <div class="content">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h2 id="poiTitle" class="fw-bold mb-1">@Model?.Title</h2>
+                            <p id="poiSubtitle" class="text-muted small mb-2">@Model?.Subtitle</p>
+                        </div>
+                        <div class="d-flex gap-2 align-items-start">
+                            @* language chips *@
+                            <div id="langChips" class="d-flex gap-1"></div>
+                        </div>
+                    </div>
+
+                    <p id="poiDescription" class="mb-3">@Model?.Description</p>
+
+                    @* Detailed description area (below title, above player) *@
+                    <div id="poiDetailDescription" class="mb-3 text-secondary">
+                        @if (Model?.Localizations != null && Model.Localizations.Count>0)
+                        {
+                            <text>@(Model.Localizations.FirstOrDefault(x => string.Equals(x.LanguageCode, Model.LanguageCode, StringComparison.OrdinalIgnoreCase))?.Description ?? string.Empty)</text>
+                        }
+                    </div>
+
+                    <div class="player-card">
+                        <div class="player-controls">
+                            <div class="player-play" id="playerPlay">▶</div>
+                            <div style="flex:1">
+                                <div id="playerTitle" class="fw-semibold">Thuyết minh</div>
+                                <div id="playerSubtitle" class="small">Bấm Play để nghe hướng dẫn</div>
+                                <div class="mt-2 progress-rounded"><div id="audioProgressBar" class="progress-bar-gradient"></div></div>
+                            </div>
+                            <div style="width:48px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="sticky-actions">
+                <div class="container d-flex gap-2 align-items-center">
+                    <div class="input-group" style="min-width:0">
+                        <select id="langSelect" class="form-select" style="max-width:120px; display:none;"></select>
+                    </div>
+                    <button id="playBtn" class="btn btn-primary flex-fill big-btn">▶️ Play</button>
+                    <a id="downloadQr" class="btn btn-outline-secondary big-btn" href="@qrImageUrl" target="_blank">🔍 QR</a>
+                </div>
+            </div>
+        }
+    </div>
+
+    <script>
+        const poi = @Html.Raw(Model is null ? "null" : System.Text.Json.JsonSerializer.Serialize(Model));
+        const apiBaseUrl = '@(ViewData["ApiBaseUrl"] ?? "")';
+        const availableLangs = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(availableLangs));
+
+        function showNotFound() {
+            document.body.innerHTML = `
+                <div class="container text-center" style="padding:2rem;">
+                    <h3>Không tìm thấy địa điểm</h3>
+                    <p class="text-muted">Xin lỗi, POI bạn đang tìm không tồn tại hoặc đã bị xóa.</p>
+                    <a href="/" class="btn btn-primary">Quay lại trang chủ</a>
+                </div>`;
+        }
+
+        async function postEvent(eventType, extra) {
+            try {
+                await fetch('/api/metrics/events', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ eventType, ...extra })
+                });
+            } catch (e) { console.warn('Event post failed', e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!poi) { showNotFound(); return; }
+
+            // Auto record QR scan
+            postEvent('QrScan', { poiId: poi.id });
+
+            const playBtn = document.getElementById('playBtn');
+            playBtn?.addEventListener('click', async () => {
+                // find first audio asset
+                // choose audio by language preference
+                const lang = (document.getElementById('langSelect')?.value) || 'vi';
+                let asset = null;
+                if (poi.audioAssets && poi.audioAssets.length>0) {
+                    // prefer exact language match, then primary language, then first
+                    asset = poi.audioAssets.find(a => a.languageCode && a.languageCode.toLowerCase() === lang.toLowerCase())
+                        || poi.audioAssets.find(a => a.languageCode && a.languageCode.toLowerCase() === poi.languageCode)
+                        || poi.audioAssets[0];
+                }
+                if (!asset || !asset.audioUrl) {
+                    alert('Không có audio cho POI này');
+                    return;
+                }
+
+                // play audio
+                // show progress bar and play
+                const audio = new Audio(asset.audioUrl);
+                // create progress UI
+                let progress = document.getElementById('audioProgress');
+                if (!progress) {
+                    progress = document.createElement('div');
+                    progress.id = 'audioProgress';
+                    progress.innerHTML = '<div class="progress" style="height:8px;"><div id="audioProgressBar" class="progress-bar" role="progressbar" style="width:0%"></div></div>';
+                    document.body.appendChild(progress);
+                }
+
+                audio.addEventListener('timeupdate', () => {
+                    const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+                    const bar = document.getElementById('audioProgressBar');
+                    if (bar) bar.style.width = pct + '%';
+                });
+
+                audio.addEventListener('ended', () => {
+                    const bar = document.getElementById('audioProgressBar');
+                    if (bar) bar.style.width = '0%';
+                });
+
+                try { await audio.play(); }
+                catch (e) { console.error(e); alert('Không thể phát audio'); }
+
+                // notify server about play
+                postEvent('PoiPlay', { poiId: poi.id, language: lang });
+            });
+        });
+    </script>
+</body>
+</html>

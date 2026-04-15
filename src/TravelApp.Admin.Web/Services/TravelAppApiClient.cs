@@ -9,11 +9,26 @@ namespace TravelApp.Admin.Web.Services;
 public sealed class TravelAppApiClient : ITravelAppApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly Microsoft.Extensions.Logging.ILogger<TravelAppApiClient> _logger;
 
-    public TravelAppApiClient(HttpClient httpClient, IOptions<TravelAppApiOptions> options)
+    public TravelAppApiClient(HttpClient httpClient, IOptions<TravelAppApiOptions> options, Microsoft.Extensions.Logging.ILogger<TravelAppApiClient> logger)
     {
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri(options.Value.BaseUrl);
+        _logger = logger;
+    }
+
+    public async Task<IReadOnlyList<object>> GetTopPoisAsync(int limit = 10, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var endpoint = $"api/metrics/admin/top-pois?limit={limit}";
+            return await _httpClient.GetFromJsonAsync<List<object>>(endpoint, cancellationToken) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
     }
 
     public async Task<IReadOnlyList<PoiMobileDto>> GetPoisAsync(string? languageCode = null, CancellationToken cancellationToken = default)
@@ -68,8 +83,18 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
             var endpoint = string.IsNullOrWhiteSpace(languageCode)
                 ? $"api/pois/{id}"
                 : $"api/pois/{id}?lang={Uri.EscapeDataString(languageCode)}";
+            _logger?.LogInformation("Calling GetPoiAsync for id={Id} endpoint={Endpoint}", id, endpoint);
+            var response = await _httpClient.GetAsync(endpoint, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger?.LogWarning("GetPoiAsync failed for id={Id} status={Status} body={Body}", id, response.StatusCode, raw);
+                return null;
+            }
 
-            return await _httpClient.GetFromJsonAsync<PoiMobileDto>(endpoint, cancellationToken);
+            var dto = await response.Content.ReadFromJsonAsync<PoiMobileDto>(cancellationToken: cancellationToken);
+            _logger?.LogInformation("GetPoiAsync success for id={Id}", id);
+            return dto;
         }
         catch (OperationCanceledException)
         {
@@ -77,6 +102,7 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
         }
         catch (HttpRequestException)
         {
+            _logger?.LogError("GetPoiAsync HttpRequestException for id={Id}", id);
             return null;
         }
     }
@@ -86,7 +112,25 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
         try
         {
             var response = await _httpClient.PostAsJsonAsync("api/pois", request, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(raw);
+                    if (doc.RootElement.TryGetProperty("message", out var msg))
+                    {
+                        throw new InvalidOperationException(msg.GetString() ?? "API returned error");
+                    }
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    // ignore parse error and throw raw
+                }
+
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(raw) ? "API returned non-success status" : raw);
+            }
+
             return (await response.Content.ReadFromJsonAsync<PoiMobileDto>(cancellationToken: cancellationToken))!;
         }
         catch (HttpRequestException)
@@ -118,6 +162,31 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
         catch (HttpRequestException)
         {
             return false;
+        }
+    }
+
+    public async Task<TravelApp.Application.Dtos.Metrics.MetricsOverviewDto?> GetMetricsOverviewAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<TravelApp.Application.Dtos.Metrics.MetricsOverviewDto>("api/metrics/admin/overview", cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<TravelApp.Application.Dtos.Metrics.EventAdminDto>> GetRecentEventsAsync(int limit = 50, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var endpoint = $"api/metrics/admin/recent?limit={limit}";
+            return await _httpClient.GetFromJsonAsync<List<TravelApp.Application.Dtos.Metrics.EventAdminDto>>(endpoint, cancellationToken) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
         }
     }
 

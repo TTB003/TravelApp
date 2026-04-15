@@ -12,6 +12,42 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddApplication();
 
+// Configure CORS to allow requests from the developer machine on the LAN (allow any port on 192.168.5.36)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalNetwork", policy =>
+    {
+        // Accept origins where the host is exactly the developer machine IP (any port)
+        policy.SetIsOriginAllowed(origin =>
+        {
+            try
+            {
+                var uri = new Uri(origin);
+                return string.Equals(uri.Host, "192.168.5.36", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+});
+
+// Configure Kestrel to listen on all network interfaces (bind to 0.0.0.0) on port 5001 for HTTP
+// This allows other devices on the LAN (e.g., 192.168.5.36) to call the API.
+var kestrelSection = builder.Configuration.GetSection("Kestrel");
+if (!kestrelSection.Exists())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        // Listen on port 5001 on all network interfaces (HTTP)
+        options.ListenAnyIP(5001);
+    });
+}
+
 var jwtSecret = GetRequiredConfigValue(builder.Configuration, "Jwt:Secret");
 var jwtIssuer = GetRequiredConfigValue(builder.Configuration, "Jwt:Issuer");
 var jwtAudience = GetRequiredConfigValue(builder.Configuration, "Jwt:Audience");
@@ -68,6 +104,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseStaticFiles();
+app.UseCors("AllowLocalNetwork");
 app.UseAuthentication();
 app.UseAuthorization();
 

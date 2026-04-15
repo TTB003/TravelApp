@@ -15,6 +15,45 @@ public class ShopService : IShopService
         _dbContext = dbContext;
     }
 
+    public async Task<ShopDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var shop = await _dbContext.Shops
+            .AsNoTracking()
+            .Include(x => x.Images)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (shop is null)
+            return null;
+
+        return new ShopDto
+        {
+            Id = shop.Id,
+            OwnerId = shop.OwnerId,
+            Address = shop.Address,
+            Description = shop.Description,
+            CreatedAtUtc = shop.CreatedAtUtc,
+            Images = shop.Images.Select(i => new ShopImageDto { Id = i.Id, FileName = i.FileName, Url = i.Url }).ToList()
+        };
+    }
+
+    public async Task<IReadOnlyList<ShopDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var shops = await _dbContext.Shops
+            .AsNoTracking()
+            .Include(x => x.Images)
+            .ToListAsync(cancellationToken);
+
+        return shops.Select(shop => new ShopDto
+        {
+            Id = shop.Id,
+            OwnerId = shop.OwnerId,
+            Address = shop.Address,
+            Description = shop.Description,
+            CreatedAtUtc = shop.CreatedAtUtc,
+            Images = shop.Images.Select(i => new ShopImageDto { Id = i.Id, FileName = i.FileName, Url = i.Url }).ToList()
+        }).ToList();
+    }
+
     public async Task<ShopDto> CreateShopAsync(Guid ownerId, CreateShopRequestDto request, CancellationToken cancellationToken = default)
     {
         var shop = new Shop

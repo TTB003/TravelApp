@@ -1,0 +1,68 @@
+@model TravelApp.Admin.Web.ViewModels.Dashboard.DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="dashboard-grid">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Dashboard</h1>
+            <p class="section-subtitle">Metrics for POI/Tour usage and QR scans</p>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <div class="admin-card p-4">
+            <h2 class="section-title">Overview</h2>
+            <div class="row g-3 mt-3">
+                <div class="col-md-2"><div class="stat-card">POI views<br /><strong>@Model.TotalPoiViews</strong></div></div>
+                <div class="col-md-2"><div class="stat-card">POI plays<br /><strong>@Model.TotalPoiPlays</strong></div></div>
+                <div class="col-md-2"><div class="stat-card">Tour views<br /><strong>@Model.TotalTourViews</strong></div></div>
+                <div class="col-md-2"><div class="stat-card">Tour plays<br /><strong>@Model.TotalTourPlays</strong></div></div>
+                <div class="col-md-2"><div class="stat-card">QR scans<br /><strong>@Model.TotalQrScans</strong></div></div>
+            </div>
+        </div>
+
+        <div class="admin-card p-4 mt-3">
+            <h2 class="section-title">Top POIs (by plays)</h2>
+            <ul class="list-group list-group-flush mt-2">
+                @foreach (var t in Model.TopPois)
+                {
+                    <li class="list-group-item">@t</li>
+                }
+            </ul>
+        </div>
+
+        <div class="admin-card p-4">
+            <h2 class="section-title">Recent events</h2>
+            <table class="table table-sm mt-3">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Type</th>
+                        <th>PoiId</th>
+                        <th>TourId</th>
+                        <th>User</th>
+                        <th>Metadata</th>
+                        <th>Time (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in Model.RecentEvents)
+                    {
+                        <tr>
+                            <td>@e.Id</td>
+                            <td>@e.EventType</td>
+                            <td>@(e.PoiId?.ToString() ?? "-")</td>
+                            <td>@(e.TourId?.ToString() ?? "-")</td>
+                            <td>@(e.UserId?.ToString() ?? "-")</td>
+                            <td style="max-width:240px;overflow:auto;">@e.MetadataJson</td>
+                            <td>@e.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

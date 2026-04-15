@@ -46,7 +46,8 @@
             <div class="row g-3">
                 @foreach (var poi in Model.Take(4))
                 {
-                    var qrContent = $"travelapp://poi/{poi.Id}";
+                    var baseUrl = Context.Request.Scheme + "://" + Context.Request.Host.Value;
+                    var qrContent = $"{baseUrl}/poi/detail/{poi.Id}";
                     var qrImageUrl = $"https://quickchart.io/qr?size=180&text={Uri.EscapeDataString(qrContent)}";
                     <div class="col-12 col-md-6 col-xl-3">
                         <div class="border rounded-4 bg-body-tertiary p-3 h-100">
