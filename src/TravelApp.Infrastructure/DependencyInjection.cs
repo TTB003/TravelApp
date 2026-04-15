@@ -10,6 +10,8 @@ using TravelApp.Infrastructure.Services.Auth;
 using TravelApp.Infrastructure.Services.Pois;
 using TravelApp.Infrastructure.Services.Users;
 using TravelApp.Infrastructure.Services.Tours;
+using TravelApp.Application.Abstractions.Shops;
+using TravelApp.Infrastructure.Services.Shops;
 
 namespace TravelApp.Infrastructure;
 
@@ -27,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<ITourQueryService, TourQueryService>();
         services.AddScoped<ITourAdminService, TourAdminService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IAuthService, AuthService>();
 
         return services;

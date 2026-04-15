@@ -19,10 +19,13 @@ public class TravelAppDbContext : DbContext, ITravelAppDbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Shop> Shops => Set<Shop>();
+    public DbSet<ShopImage> ShopImages => Set<ShopImage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TravelAppDbContext).Assembly);
+        // Apply explicit configuration for Shop entities if needed
         base.OnModelCreating(modelBuilder);
     }
 }
