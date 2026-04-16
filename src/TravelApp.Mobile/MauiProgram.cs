@@ -59,9 +59,34 @@ namespace TravelApp
     		builder.Logging.AddDebug();
 #endif
 
+            // Register ApiClientOptions using centralized AppConfig when available
+            var config = new AppConfig();
+            try
+            {
+                // Attempt to load from Resources/Raw/AppConfig.json if present
+                try
+                {
+                    var stream = typeof(MauiProgram).Assembly.GetManifestResourceStream("TravelApp.Resources.Raw.AppConfig.json");
+                    if (stream is not null)
+                    {
+                        using var reader = new System.IO.StreamReader(stream);
+                        var json = reader.ReadToEnd();
+                        var parsed = System.Text.Json.JsonSerializer.Deserialize<AppConfig>(json);
+                        if (parsed is not null) config = parsed;
+                    }
+                }
+                catch
+                {
+                }
+            }
+            catch
+            {
+            }
+
+            builder.Services.AddSingleton(config);
             builder.Services.AddSingleton(new ApiClientOptions
             {
-                BaseUrl = ResolveApiBaseUrl()
+                BaseUrl = config.ApiBaseUrl
             });
             builder.Services.AddSingleton(new CachePolicyOptions
             {

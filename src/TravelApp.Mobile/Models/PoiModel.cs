@@ -15,4 +15,5 @@ public class PoiModel
     public string? Provider { get; set; }
     public string? Credit { get; set; }
     public string? SpeechText { get; set; }
+    public string? QrImageUrl { get; set; }
 }

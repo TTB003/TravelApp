@@ -30,6 +30,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private readonly ILocalDatabaseService _localDatabaseService;
     private readonly IAudioLibraryService _audioLibraryService;
     private readonly IBookmarkHistoryService _bookmarkHistoryService;
+    private readonly IAudioService _audioService;
     private readonly ITourRouteCatalogService _tourRouteCatalogService;
     private readonly TravelApp.Services.Runtime.TourRouteCacheService _tourRouteCacheService;
 
@@ -123,6 +124,9 @@ public class TourDetailViewModel : INotifyPropertyChanged
     public ObservableCollection<SpeechLanguageOption> SpeechLanguages => _speechLanguages;
 
     public ICommand BackCommand { get; }
+    public ICommand PlayAudioCommand { get; }
+    public ICommand StopAudioCommand { get; }
+    public ICommand SelectLanguageSimpleCommand { get; }
     public ICommand ViewTourCommand { get; }
     public ICommand SaveSpeechTextCommand { get; }
     public ICommand DownloadTourCommand { get; }
@@ -145,6 +149,32 @@ public class TourDetailViewModel : INotifyPropertyChanged
             _selectedSpeechLanguageCode = normalized;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedSpeechLanguageDisplayText));
+            // When selected language changes, update displayed title/description and audio selection
+            ApplyLocalizationForSelectedLanguage();
+        }
+    }
+
+    private bool _isPlaying;
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set
+        {
+            if (_isPlaying == value) return;
+            _isPlaying = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private double _playerProgress;
+    public double PlayerProgress
+    {
+        get => _playerProgress;
+        set
+        {
+            if (Math.Abs(_playerProgress - value) < 0.001) return;
+            _playerProgress = value;
+            OnPropertyChanged();
         }
     }
 
@@ -182,14 +212,21 @@ public class TourDetailViewModel : INotifyPropertyChanged
         }
     }
 
-    public TourDetailViewModel(ITourRouteCatalogService tourRouteCatalogService, IPoiApiClient poiApiClient, ILocalDatabaseService localDatabaseService, IAudioLibraryService audioLibraryService, IBookmarkHistoryService bookmarkHistoryService, TravelApp.Services.Runtime.TourRouteCacheService tourRouteCacheService)
+    public TourDetailViewModel(ITourRouteCatalogService tourRouteCatalogService, IPoiApiClient poiApiClient, ILocalDatabaseService localDatabaseService, IAudioLibraryService audioLibraryService, IBookmarkHistoryService bookmarkHistoryService, TravelApp.Services.Runtime.TourRouteCacheService tourRouteCacheService, IAudioService audioService)
     {
         _tourRouteCatalogService = tourRouteCatalogService;
         _poiApiClient = poiApiClient;
         _localDatabaseService = localDatabaseService;
         _audioLibraryService = audioLibraryService;
         _bookmarkHistoryService = bookmarkHistoryService;
+        _audioService = audioService;
         _tourRouteCacheService = tourRouteCacheService;
+        _audioService = audioService;
+        _audioService.PlaybackEnded += (_, _) =>
+        {
+            IsPlaying = false;
+            PlayerProgress = 0;
+        };
         BackCommand = new Command(async () =>
         {
             await StopAsync();
@@ -211,6 +248,16 @@ public class TourDetailViewModel : INotifyPropertyChanged
         ToggleSpeechLanguageMenuCommand = new Command(() => IsSpeechLanguageMenuOpen = !IsSpeechLanguageMenuOpen);
         CloseSpeechLanguageMenuCommand = new Command(() => IsSpeechLanguageMenuOpen = false);
         SelectSpeechLanguageCommand = new Command<SpeechLanguageOption>(async option => await SelectSpeechLanguageAsync(option));
+        SelectLanguageSimpleCommand = new Command<string>(async lang =>
+        {
+            if (string.IsNullOrWhiteSpace(lang)) return;
+            SelectedSpeechLanguageCode = NormalizeLanguageCode(lang);
+            // stop any playing audio
+            await _audioService.StopAsync();
+        });
+
+        PlayAudioCommand = new Command(async () => await PlayAudioAsync());
+        StopAudioCommand = new Command(async () => await _audioService.StopAsync());
 
         UpdateSpeechTextPermission();
         UserProfileService.ProfileChanged += OnUserProfileChanged;
@@ -267,6 +314,44 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
         _currentTourId = id;
         _ = LoadAsync(id);
+    }
+
+    private async Task PlayAudioAsync()
+    {
+        if (_currentPoiDto is null)
+            return;
+
+        try
+        {
+            IsPlaying = true;
+            await _audioService.PlayPoiAudioAsync(MapToPoiMobileDto(_currentPoiDto));
+        }
+        catch
+        {
+            IsPlaying = false;
+        }
+    }
+
+    private PoiMobileDto MapToPoiMobileDto(PoiDto dto)
+    {
+        return new PoiMobileDto
+        {
+            Id = dto.Id,
+            Title = dto.Title,
+            Subtitle = dto.Subtitle,
+            Description = dto.Description,
+            LanguageCode = dto.PrimaryLanguage,
+            PrimaryLanguage = dto.PrimaryLanguage,
+            ImageUrl = dto.ImageUrl,
+            Location = dto.Location,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
+            GeofenceRadiusMeters = dto.GeofenceRadiusMeters ?? 100,
+            AudioAssets = dto.AudioAssets.Select(a => new PoiAudioMobileDto { LanguageCode = a.LanguageCode, AudioUrl = a.AudioUrl, Transcript = a.Transcript, IsGenerated = a.IsGenerated }).ToList(),
+            SpeechTexts = dto.SpeechTexts.Select(s => new PoiSpeechTextMobileDto { LanguageCode = s.LanguageCode, Text = s.Text }).ToList(),
+            SpeechText = dto.SpeechText,
+            SpeechTextLanguageCode = dto.SpeechTextLanguageCode
+        };
     }
 
     public Task RefreshAsync()
@@ -544,6 +629,25 @@ public class TourDetailViewModel : INotifyPropertyChanged
         SelectedSpeechLanguageCode = NormalizeLanguageCode(option.LanguageCode);
         UpdateSelectedLanguageFlags();
         ApplySpeechTextForSelectedLanguage();
+        ApplyLocalizationForSelectedLanguage();
+    }
+
+    private void ApplyLocalizationForSelectedLanguage()
+    {
+        if (_currentPoiDto is null || Tour is null) return;
+
+        var lang = SelectedSpeechLanguageCode;
+
+        // Update title/description from Localizations
+        var loc = _currentPoiDto.Localizations?.FirstOrDefault(l => string.Equals(l.LanguageCode, lang, StringComparison.OrdinalIgnoreCase));
+        if (loc is not null)
+        {
+            Tour.Title = string.IsNullOrWhiteSpace(loc.Title) ? Tour.Title : loc.Title;
+            Tour.Subtitle = string.IsNullOrWhiteSpace(loc.Subtitle) ? Tour.Subtitle : loc.Subtitle ?? string.Empty;
+            Tour.Description = string.IsNullOrWhiteSpace(loc.Description) ? Tour.Description : loc.Description ?? string.Empty;
+            OnPropertyChanged(nameof(Tour));
+            OnPropertyChanged(nameof(Description));
+        }
     }
 
     private void SetLoadedSpeechTexts(IReadOnlyList<PoiSpeechTextDto> speechTexts, string? selectedLanguageHint, string? fallbackText, string? primaryLanguage)
@@ -720,6 +824,26 @@ public class TourDetailViewModel : INotifyPropertyChanged
             Credit = dto.Credit,
             SpeechText = dto.SpeechText
         };
+    }
+
+    // Generate QR image url pointing to admin public detail using AppConfig if available
+    private void EnsureQrImage(PoiDto dto)
+    {
+        try
+        {
+            var config = MauiProgram.Services.GetRequiredService<AppConfig>();
+            var adminBase = (config.AdminHost?.TrimEnd('/') ?? "http://192.168.5.36") + ":" + config.AdminPort;
+            var qrLink = $"{adminBase}/poi/detail/{dto.Id}";
+            var qrUrl = config.QuickChartQrBase + System.Uri.EscapeDataString(qrLink);
+            if (Tour is not null)
+            {
+                Tour.QrImageUrl = qrUrl;
+                OnPropertyChanged(nameof(Tour));
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static bool IsStaleCentralParkPoi(PoiDto dto)

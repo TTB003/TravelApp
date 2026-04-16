@@ -148,7 +148,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Include=".github\copilot-instructions.md" />
+		<None Include=".github\copilot-instructions.md" />
+	  <!-- AppConfig.json is provided in Resources/Raw; include a build-time copy to project root for tooling that expects it -->
+	  <None Include="Resources\Raw\AppConfig.json">
+		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		<Link>AppConfig.json</Link>
+	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
+	<MauiAsset Update="Resources\Raw\AppConfig.json">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </MauiAsset>
+  <!-- Ensure AppConfig.json is included as MauiAsset for tooling and runtime -->
 	</ItemGroup>
 
 </Project>

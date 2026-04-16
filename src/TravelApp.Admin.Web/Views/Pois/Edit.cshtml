@@ -243,3 +243,50 @@
         </div>
     </form>
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelector('form[data-live-preview-form]')?.addEventListener('submit', async (e) => {
+            try {
+                e.preventDefault();
+                const form = e.target;
+                const action = form.getAttribute('action') || window.location.href;
+                const formData = new FormData(form);
+                const response = await fetch(action, { method: form.getAttribute('method') || 'POST', body: formData });
+                if (response.ok) {
+                    const text = await response.text();
+                    try {
+                        const json = JSON.parse(text);
+                        const id = json?.id ?? json?.Id ?? form.querySelector('input[name="Id"]')?.value;
+                        if (id) {
+                            const url = `${window.location.protocol}//${window.location.host}/poi/detail/${id}`;
+                            showCopyableLink(url);
+                            return;
+                        }
+                    } catch { }
+                }
+            } catch (err) { console.warn('Enhanced submit failed', err); }
+            e.target.submit();
+        });
+
+        function showCopyableLink(url) {
+            const existing = document.getElementById('createdLinkToast');
+            if (existing) existing.remove();
+            const container = document.createElement('div');
+            container.id = 'createdLinkToast';
+            container.style.position = 'fixed';
+            container.style.right = '1rem';
+            container.style.bottom = '1rem';
+            container.style.background = 'rgba(0,0,0,0.85)';
+            container.style.color = 'white';
+            container.style.padding = '1rem';
+            container.style.borderRadius = '8px';
+            container.style.boxShadow = '0 6px 18px rgba(0,0,0,0.32)';
+            container.innerHTML = `<div style="font-weight:600;margin-bottom:.5rem">Link updated</div><div style="word-break:break-all;margin-bottom:.5rem">${url}</div><div style="display:flex;gap:.5rem"><button id="copyLinkBtn" class="btn btn-sm btn-light">Copy</button><button id="closeLinkBtn" class="btn btn-sm btn-outline-light">Close</button></div>`;
+            document.body.appendChild(container);
+            document.getElementById('copyLinkBtn')?.addEventListener('click', () => { navigator.clipboard?.writeText(url); alert('Link copied to clipboard'); });
+            document.getElementById('closeLinkBtn')?.addEventListener('click', () => container.remove());
+        }
+    </script>
+}
+</div>

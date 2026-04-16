@@ -7,8 +7,10 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
-                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Simple converter for language chip background -->
+            <local:LangToBackgroundConverter x:Key="LangToBackgroundConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
