@@ -150,6 +150,13 @@
                    LineBreakMode="WordWrap" />
                     </Border>
 
+                    <!-- Description block restored -->
+                    <Label Text="{Binding Tour.Description}" 
+                       FontSize="14" 
+                       TextColor="{AppThemeBinding Light=#666666, Dark=#AAAAAA}" 
+                       Margin="0,0,0,16" 
+                       LineBreakMode="WordWrap" />
+
                     <Border Stroke="{AppThemeBinding Light=#E0E0E0, Dark=#2A2F3A}" 
                 StrokeThickness="1" 
                 StrokeShape="RoundRectangle 16" 

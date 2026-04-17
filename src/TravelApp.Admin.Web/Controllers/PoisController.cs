@@ -22,6 +22,17 @@ public class PoisController : Controller
         return View(model);
     }
 
+    [AllowAnonymous]
+    public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
+    {
+        var poi = await _apiClient.GetPoiAsync(id, "vi", cancellationToken);
+        if (poi is null)
+        {
+            return NotFound();
+        }
+        return View(poi);
+    }
+
     [Authorize(Roles = "Owner,Admin,SuperAdmin")]
     public IActionResult Create()
     {
@@ -231,7 +242,7 @@ public class PoisController : Controller
     {
         // Ensure no trailing slash
         if (baseUrl.EndsWith('/')) baseUrl = baseUrl.TrimEnd('/');
-        return $"{baseUrl}/poi/detail/{poiId}";
+        return $"{baseUrl}/Public/Poi/{poiId}";
     }
 
     private static string BuildQrImageUrl(string qrContent)

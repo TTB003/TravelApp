@@ -1,0 +1,57 @@
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = "Quét mã QR";
+}
+
+<div class="container py-4 text-center">
+    <h4 class="fw-bold mb-1">Quét mã POI</h4>
+    <p class="text-secondary small mb-4">Đưa camera vào mã QR để xem thông tin điểm đến</p>
+
+    <div id="reader-container" class="position-relative overflow-hidden rounded-4 border border-secondary mb-4" style="background: #000; min-height: 300px;">
+        <div id="reader"></div>
+        <div class="qr-overlay"></div>
+    </div>
+
+    <div id="scan-status" class="alert alert-dark bg-dark border-0 text-white-50 py-2 small">
+        <i class="bi bi-camera-fill accent-color me-2"></i> Đang chờ quyền truy cập camera...
+    </div>
+
+    <div class="mt-4 p-3 bg-dark rounded-4 text-start small">
+        <h6 class="fw-bold accent-color"><i class="bi bi-info-circle-fill me-1"></i> Lưu ý</h6>
+        <p class="mb-0 text-secondary">Bạn không cần tải app. Hãy đảm bảo đã cấp quyền camera cho trình duyệt để quét được mã.</p>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const html5QrCode = new Html5Qrcode("reader");
+        const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+            document.getElementById('scan-status').innerHTML = "Đã tìm thấy mã! Đang chuyển hướng...";
+            html5QrCode.stop().then(() => {
+                // Giải mã URL và trích xuất ID (logic tương tự QrCodeParserService)
+                window.location.href = decodedText;
+            });
+        };
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+            .then(() => {
+                document.getElementById('scan-status').innerHTML = "Camera đã sẵn sàng. Hãy quét mã!";
+            })
+            .catch(err => {
+                document.getElementById('scan-status').innerHTML = "Lỗi: " + err;
+            });
+    </script>
+    <style>
+        #reader { width: 100% !important; border: none !important; }
+        #reader video { border-radius: 16px; object-fit: cover; }
+        .qr-overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 200px; height: 200px;
+            border: 2px solid #E31667; border-radius: 20px;
+            box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
+            pointer-events: none; z-index: 10;
+        }
+    </style>
+}

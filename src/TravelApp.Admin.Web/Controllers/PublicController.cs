@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using TravelApp.Admin.Web.Services;
@@ -19,11 +18,22 @@ public class PublicController : Controller
         _options = options.Value;
     }
 
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    {
+        var pois = await _apiClient.GetPoisAsync("vi", cancellationToken);
+        ViewData["ApiBaseUrl"] = _options.BaseUrl?.TrimEnd('/');
+        return View(pois);
+    }
+
+    public IActionResult Scanner()
+    {
+        return View();
+    }
+
     [HttpGet]
-    [Route("public/poi/detail/{id:int}")]
+    [Route("Public/Poi/{id:int}")]
     public async Task<IActionResult> Detail(int id, CancellationToken cancellationToken)
     {
-        // Fetch POI server-side to avoid client CORS/SSL issues and to render instantly
         PoiMobileDto? poi = null;
         try
         {
@@ -34,7 +44,8 @@ public class PublicController : Controller
             poi = null;
         }
 
-        ViewData["ApiBaseUrl"] = _options.BaseUrl?.TrimEnd('/');
+        var apiBaseUrl = _options.BaseUrl?.TrimEnd('/');
+        ViewData["ApiBaseUrl"] = apiBaseUrl;
         return View("~/Views/Public/Detail.cshtml", poi as object);
     }
 }

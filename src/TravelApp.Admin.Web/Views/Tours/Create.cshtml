@@ -257,7 +257,7 @@
                         const json = JSON.parse(text);
                         const id = json?.id ?? json?.Id ?? form.querySelector('input[name="Id"]')?.value;
                         if (id) {
-                            const url = `${window.location.protocol}//${window.location.host}/tour/detail/${id}`;
+                            const url = `${window.location.protocol}//${window.location.host}/Public/Poi/${id}`;
                             showCopyableLink(url);
                             return;
                         }

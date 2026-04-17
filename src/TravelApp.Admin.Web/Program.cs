@@ -10,6 +10,19 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new AuthorizeFilter());
 });
 
+// Add lightweight POI API service for public web pages
+builder.Services.AddHttpClient<TravelApp.Admin.Web.Services.IPoiApiService, TravelApp.Admin.Web.Services.PoiApiService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TravelAppApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+}).ConfigurePrimaryHttpMessageHandler(sp =>
+{
+    return new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+    };
+});
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {

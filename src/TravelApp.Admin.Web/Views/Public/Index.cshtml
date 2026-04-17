@@ -1,0 +1,45 @@
+@model IReadOnlyList<TravelApp.Application.Dtos.Pois.PoiMobileDto>
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = "Khám phá";
+}
+
+<div class="container py-3 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">Khám phá</h2>
+        <div class="bg-dark rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+            <i class="bi bi-search fs-5"></i>
+        </div>
+    </div>
+
+    <h5 class="fw-bold mb-3">Dành cho bạn</h5>
+    
+    <div class="row">
+        @foreach (var poi in Model)
+        {
+            <div class="col-12">
+                <a href="/Public/Poi/@poi.Id" class="text-decoration-none">
+                    <div class="card poi-card position-relative">
+                        <img src="@(string.IsNullOrEmpty(poi.ImageUrl) ? "https://placehold.co/600x400/000/fff?text=No+Image" : poi.ImageUrl)" alt="@poi.Title">
+                        <div class="card-body">
+                            <span class="badge-category mb-2 d-inline-block">@poi.Category</span>
+                            <h5 class="card-title text-white fw-bold mb-1">@poi.Title</h5>
+                            <p class="card-text text-secondary small mb-0">@poi.Location</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .poi-card {
+        background: #1C2129;
+        border-radius: 28px;
+        margin-bottom: 24px;
+    }
+    .poi-card img {
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+</style>

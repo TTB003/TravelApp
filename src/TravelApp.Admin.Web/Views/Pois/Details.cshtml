@@ -1,0 +1,45 @@
+@model TravelApp.Application.Dtos.Pois.PoiMobileDto
+@{
+    ViewData["Title"] = Model.Title;
+    var apiBaseUrl = "http://localhost:5001";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+        @if (!string.IsNullOrEmpty(Model.ImageUrl))
+        {
+            <img src="@Model.ImageUrl" class="card-img-top" style="height: 400px; object-fit: cover;" alt="@Model.Title">
+        }
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h1 class="display-5 fw-bold mb-1">@Model.Title</h1>
+                    <p class="text-muted fs-5">@Model.Subtitle</p>
+                </div>
+                <span class="badge bg-primary rounded-pill px-3">@Model.Category</span>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <h5 class="fw-bold">Mô tả</h5>
+                    <p class="text-secondary" style="white-space: pre-line;">@Model.Description</p>
+                </div>
+                <div class="col-md-4 bg-light p-3 rounded-3">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-volume-up-fill"></i> Hướng dẫn âm thanh</h5>
+                    <div class="audio-player">
+                        <audio controls class="w-100">
+                            <source src="@apiBaseUrl/api/pois/@Model.Id/audio" type="audio/mpeg">
+                            Trình duyệt của bạn không hỗ trợ phát âm thanh.
+                        </audio>
+                        <p class="small text-muted mt-2">Dữ liệu được tải trực tiếp từ hệ thống API chính.</p>
+                    </div>
+                    <hr />
+                    <p class="mb-1"><strong>Vị trí:</strong> @Model.Location</p>
+                    <p class="mb-0"><strong>Tọa độ:</strong> @Model.Latitude, @Model.Longitude</p>
+                </div>
+            </div>
+
+            <a asp-action="Index" class="btn btn-outline-secondary">Quay lại danh sách</a>
+        </div>
+    </div>
+</div>

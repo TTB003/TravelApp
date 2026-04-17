@@ -316,19 +316,30 @@ public class TourDetailViewModel : INotifyPropertyChanged
         _ = LoadAsync(id);
     }
 
+    private bool _isProcessingAudio; // Thêm biến private này ở đầu class
+
     private async Task PlayAudioAsync()
     {
-        if (_currentPoiDto is null)
-            return;
+        if (_currentPoiDto is null || _isProcessingAudio) return; // Nếu đang xử lý thì thoát luôn
 
+        _isProcessingAudio = true;
         try
         {
+            // Luôn dừng audio cũ trước khi phát bất cứ thứ gì mới
+            await _audioService.StopAsync();
+
             IsPlaying = true;
+            // Gọi phát audio
             await _audioService.PlayPoiAudioAsync(MapToPoiMobileDto(_currentPoiDto));
         }
-        catch
+        catch (Exception ex)
         {
             IsPlaying = false;
+            System.Diagnostics.Debug.WriteLine($"Audio Error: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessingAudio = false; // Xử lý xong, mở khóa cho lần nhấn tiếp theo
         }
     }
 
@@ -390,6 +401,8 @@ public class TourDetailViewModel : INotifyPropertyChanged
                 {
                     _currentPoiDto = dto;
                     Tour = MapPoi(dto);
+                    // Ensure QR image is generated immediately after data loads so mobile QR displays link to public web detail
+                    EnsureQrImage(dto);
                     SetLoadedSpeechTexts(dto.SpeechTexts, dto.SpeechTextLanguageCode, dto.SpeechText ?? dto.Description, dto.PrimaryLanguage);
                     _hasPendingSpeechTextChanges = false;
                     IsBookmarked = await _bookmarkHistoryService.IsBookmarkedAsync(id, CancellationToken.None);
@@ -453,6 +466,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
                 };
 
                 Tour = cachedModel;
+                EnsureQrImage(_currentPoiDto);
                 SetLoadedSpeechTexts(_currentPoiDto.SpeechTexts, _currentPoiDto.SpeechTextLanguageCode, _currentPoiDto.SpeechText ?? _currentPoiDto.Description, _currentPoiDto.PrimaryLanguage);
                 _hasPendingSpeechTextChanges = false;
                 IsBookmarked = await _bookmarkHistoryService.IsBookmarkedAsync(id, CancellationToken.None);
@@ -832,8 +846,10 @@ public class TourDetailViewModel : INotifyPropertyChanged
         try
         {
             var config = MauiProgram.Services.GetRequiredService<AppConfig>();
-            var adminBase = (config.AdminHost?.TrimEnd('/') ?? "http://192.168.100.164") + ":" + config.AdminPort;
-            var qrLink = $"{adminBase}/poi/detail/{dto.Id}";
+            // Build public web details URL for mobile QR scans
+            var host = (config.AdminHost?.TrimEnd('/') ?? "http://192.168.100.164");
+            var portPart = config.AdminPort > 0 ? ":" + config.AdminPort.ToString() : string.Empty;
+            var qrLink = $"{host}{portPart}/public/poi/detail/{dto.Id}";
             var qrUrl = config.QuickChartQrBase + System.Uri.EscapeDataString(qrLink);
             if (Tour is not null)
             {

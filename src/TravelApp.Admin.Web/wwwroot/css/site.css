@@ -18,6 +18,7 @@ html {
   --admin-text: #f2f5fb;
   --admin-muted: #8d95a8;
   --admin-accent: #ff7a45;
+  --brand-primary: #E31667;
   --admin-accent-2: #a35cff;
   --admin-accent-3: #37c172;
 }
@@ -84,6 +85,21 @@ body {
   color: #ffb996;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+/* Mobile-first overrides for public facing pages */
+@media (max-width: 767px) {
+  html { font-size: 15px; }
+}
+
+.btn-primary {
+  background-color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+}
+
+.btn-primary:focus, .btn-primary:hover {
+  background-color: #c61256 !important;
+  border-color: #c61256 !important;
 }
 
 .sidebar-nav {

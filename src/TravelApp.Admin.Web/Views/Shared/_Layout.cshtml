@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/TravelApp.Admin.Web.styles.css" asp-append-version="true" />
+    <link rel="manifest" href="~/manifest.json" />
+    <meta name="theme-color" content="#E31667" />
 </head>
 <body>
     <header>
@@ -51,6 +53,11 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js').catch(() => { /* ignore */ });
+        }
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
