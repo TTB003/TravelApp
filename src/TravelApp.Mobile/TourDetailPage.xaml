@@ -77,198 +77,105 @@
 
         <Border Grid.Row="1" BackgroundColor="{AppThemeBinding Light=#F6F6F8, Dark=#111318}" StrokeThickness="0" StrokeShape="RoundRectangle 0" Padding="18,18,18,12">
             <ScrollView>
-                <VerticalStackLayout Spacing="12">
-                    <!-- Language chips -->
-                    <HorizontalStackLayout Spacing="10" HorizontalOptions="Fill" VerticalOptions="Center">
-                        <Border Padding="6,4" StrokeShape="RoundRectangle 20" BackgroundColor="{Binding SelectedSpeechLanguageCode, Converter={StaticResource LangToBackgroundConverter}, ConverterParameter='vi'}">
-                            <Label Text="VN" TextColor="White" FontAttributes="Bold">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding SelectLanguageSimpleCommand}" CommandParameter="vi" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                        </Border>
-                        <Border Padding="6,4" StrokeShape="RoundRectangle 20" BackgroundColor="{Binding SelectedSpeechLanguageCode, Converter={StaticResource LangToBackgroundConverter}, ConverterParameter='en'}">
-                            <Label Text="EN" TextColor="White" FontAttributes="Bold">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding SelectLanguageSimpleCommand}" CommandParameter="en" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                        </Border>
+                <VerticalStackLayout Spacing="0">
+
+                    <Label Text="{Binding Tour.Title}" 
+               FontSize="22" 
+               FontAttributes="Bold" 
+               TextColor="{AppThemeBinding Light=#111111, Dark=#FFFFFF}" 
+               Margin="0,0,0,4" />
+
+                    <HorizontalStackLayout Spacing="4" Margin="0,0,0,4">
+                        <Label Text="★" TextColor="#FADB14" FontSize="16" />
+                        <Label Text="★" TextColor="#FADB14" FontSize="16" />
+                        <Label Text="★" TextColor="#FADB14" FontSize="16" />
+                        <Label Text="★" TextColor="#FADB14" FontSize="16" />
+                        <Label Text="★" TextColor="#FADB14" FontSize="16" />
                     </HorizontalStackLayout>
 
-                    <Label Text="{Binding Tour.Title}" FontSize="24" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#2C2D33, Dark=#EEF1F8}" />
+                    <Label Text="{Binding Tour.Subtitle}" 
+               FontSize="14" 
+               TextColor="{AppThemeBinding Light=#666666, Dark=#AAAAAA}" 
+               Margin="0,0,0,16" />
 
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="{Binding Tour.Location}" FontSize="16" TextColor="{AppThemeBinding Light=#8A8B92, Dark=#B4BDCF}" />
-                        <Label Grid.Column="1" Text="{Binding Tour.Price}" FontSize="22" TextColor="#D31963" FontAttributes="Bold" />
-                    </Grid>
-
-                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                        <Border Stroke="{AppThemeBinding Light=#CFD4D9, Dark=#2A2F3A}" StrokeThickness="1" StrokeShape="RoundRectangle 10" Padding="10,8">
-                            <Label Text="{Binding Tour.Subtitle, StringFormat='🕴  {0}'}" FontSize="14" TextColor="#1C6272" />
-                        </Border>
-
-                    <!-- Audio Player Card -->
-                    <Border>
+                    <Border StrokeShape="RoundRectangle 16" StrokeThickness="0" Margin="0,0,0,12">
                         <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="#8A2BE2" Offset="0" />
-                                <GradientStop Color="#00CED1" Offset="1" />
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#0F5A6D" Offset="0.0" />
+                                <GradientStop Color="#4B237F" Offset="1.0" />
                             </LinearGradientBrush>
                         </Border.Background>
-                        <Border StrokeShape="RoundRectangle 12" Padding="12" Margin="0,8">
-                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalOptions="Center">
-                                <Button Text="▶" WidthRequest="52" HeightRequest="52" CornerRadius="26" BackgroundColor="#FFFFFF33" Command="{Binding PlayAudioCommand}" />
-                                <StackLayout Grid.Column="1" VerticalOptions="Center" Padding="10,0">
-                                    <Label Text="Thuyết minh" TextColor="White" FontAttributes="Bold" />
-                                    <Label Text="Bấm Play để nghe hướng dẫn" TextColor="#EDEDF5" FontSize="12" />
-                                    <Slider Minimum="0" Maximum="100" Value="{Binding PlayerProgress}" BackgroundColor="#FFFFFF33" />
-                                </StackLayout>
-                                <Button Grid.Column="2" Text="⏹" WidthRequest="44" HeightRequest="44" CornerRadius="22" BackgroundColor="#FFFFFF22" Command="{Binding StopAudioCommand}" />
+                        <Grid RowDefinitions="Auto,Auto" Padding="16">
+
+                            <Grid ColumnDefinitions="*,Auto" Grid.Row="0">
+                                <Label Text="Thuyết Minh" TextColor="White" FontSize="16" FontAttributes="Bold" VerticalOptions="Center" />
+
+                                <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                    <Border StrokeShape="RoundRectangle 12" WidthRequest="26" HeightRequest="26" BackgroundColor="#D31963" StrokeThickness="0">
+                                        <Label Text="VN" TextColor="White" FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
+                                    </Border>
+                                    <Border StrokeShape="RoundRectangle 12" WidthRequest="26" HeightRequest="26" BackgroundColor="Transparent" Stroke="White" StrokeThickness="1">
+                                        <Label Text="EN" TextColor="White" FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
+                                    </Border>
+                                </HorizontalStackLayout>
                             </Grid>
-                        </Border>
+
+                            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,16,0,0" ColumnSpacing="16" VerticalOptions="Center">
+                                <Border StrokeShape="RoundRectangle 24" WidthRequest="48" HeightRequest="48" BackgroundColor="#E31667" StrokeThickness="0">
+                                    <Path Data="M8,5V19L19,12Z" Fill="White" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center" Margin="4,0,0,0" />
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding PlayAudioCommand}" />
+                                    </Border.GestureRecognizers>
+                                </Border>
+
+                                <Slider Grid.Column="1" 
+                            Minimum="0" Maximum="100" 
+                            Value="{Binding PlayerProgress}" 
+                            MinimumTrackColor="#E31667" 
+                            MaximumTrackColor="#FFFFFF" 
+                            ThumbColor="#E31667" 
+                            VerticalOptions="Center" />
+                            </Grid>
+                        </Grid>
                     </Border>
 
-                    <!-- QR Block: display at end so users can share or scan -->
-                    <StackLayout HorizontalOptions="Center" VerticalOptions="End" Margin="0,12">
-                        <Label Text="QUÉT ĐỂ XEM CHI TIẾT &amp; CHIA SẺ" FontAttributes="Bold" HorizontalOptions="Center" TextTransform="Uppercase" />
-                        <Border StrokeThickness="1" Stroke="White" BackgroundColor="#111111" Padding="8" StrokeShape="RoundRectangle 8" Margin="0,8">
-                            <Image Source="{Binding Tour.QrImageUrl}" WidthRequest="160" HeightRequest="160" Aspect="AspectFit" />
-                        </Border>
-                        <Label Text="Chia sẻ trang POI với bạn bè bằng mã QR" FontSize="12" TextColor="#FFFFFF" HorizontalOptions="Center" />
-                    </StackLayout>
-                        <Border Grid.Column="1" Stroke="{AppThemeBinding Light=#CFD4D9, Dark=#2A2F3A}" StrokeThickness="1" StrokeShape="RoundRectangle 10" Padding="10,8">
-                            <Label Text="{Binding Tour.Distance, StringFormat='⇄  {0}'}" FontSize="14" TextColor="#1C6272" />
-                        </Border>
-                        <Border Grid.Column="2" Stroke="{AppThemeBinding Light=#CFD4D9, Dark=#2A2F3A}" StrokeThickness="1" StrokeShape="RoundRectangle 10" Padding="10,8">
-                            <Label Text="{Binding Tour.Duration, StringFormat='◷  {0}'}" FontSize="14" TextColor="#1C6272" />
-                        </Border>
-                    </Grid>
+                    <Border BackgroundColor="#2D2D2D" 
+                StrokeThickness="0" 
+                StrokeShape="RoundRectangle 12" 
+                Padding="16" 
+                Margin="0,0,0,16">
+                        <Label Text="{Binding Tour.AudioDescription}" 
+                   TextColor="White" 
+                   FontSize="14" 
+                   LineBreakMode="WordWrap" />
+                    </Border>
 
-                    <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E7E8EC, Dark=#2A2F3A}" Margin="0,2" />
+                    <Border Stroke="{AppThemeBinding Light=#E0E0E0, Dark=#2A2F3A}" 
+                StrokeThickness="1" 
+                StrokeShape="RoundRectangle 16" 
+                BackgroundColor="{AppThemeBinding Light=White, Dark=#181C24}" 
+                Padding="16,24" 
+                Margin="0,0,0,24">
+                        <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
+                            <Label Text="QUÉT ĐỂ XEM CHI TIẾT &amp; CHIA SẺ" 
+                       FontSize="13" 
+                       FontAttributes="Bold" 
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}" 
+                       HorizontalTextAlignment="Center" />
 
-                    <Grid ColumnDefinitions="Auto" ColumnSpacing="8">
-                        <Border Stroke="#D31963"
-                                StrokeThickness="2"
-                                StrokeShape="RoundRectangle 27"
-                                BackgroundColor="#FFF4F8"
-                                Padding="16,0"
-                                HeightRequest="54">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding DownloadTourCommand}" />
-                            </Border.GestureRecognizers>
-                            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center" VerticalOptions="Center">
-                                <Path Data="M12,4V14M12,14L8,10M12,14L16,10M6,18H18"
-                                      Stroke="#D31963"
-                                      StrokeThickness="2"
-                                      WidthRequest="18"
-                                      HeightRequest="18"
-                                      HorizontalOptions="Center"
-                                      VerticalOptions="Center" />
-                                <Label Text="Download tour"
-                                       TextColor="#D31963"
-                                       FontSize="16"
-                                       VerticalTextAlignment="Center" />
-                            </HorizontalStackLayout>
-                        </Border>
-                    </Grid>
+                            <Image Source="{Binding Tour.QrImageUrl}" 
+                       WidthRequest="160" 
+                       HeightRequest="160" 
+                       Aspect="AspectFit" 
+                       HorizontalOptions="Center" />
 
-                    <Grid ColumnDefinitions="*" Margin="0,4,0,0">
-                        <Label Text="Description" TextColor="#D31963" FontSize="16" HorizontalTextAlignment="Center" FontAttributes="Bold" />
-                    </Grid>
-                    <BoxView HeightRequest="2" Color="#D31963" HorizontalOptions="Fill" />
-                    <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E7E8EC, Dark=#2A2F3A}" Margin="0,-10,0,0" />
-
-                    <Label FontSize="16">
-                        <Label.FormattedText>
-                            <FormattedString>
-                                <Span Text="Provided by " TextColor="{AppThemeBinding Light=#2B2D33, Dark=#EEF1F8}" />
-                                <Span Text="{Binding ProviderName}" TextColor="#1C6272" TextDecorations="Underline" />
-                            </FormattedString>
-                        </Label.FormattedText>
-                    </Label>
-
-                    <Label Text="{Binding Description}" FontSize="16" TextColor="{AppThemeBinding Light=#2B2D33, Dark=#D7DEEC}" LineBreakMode="WordWrap" />
-
-                    <Label Text="{Binding Credit}" FontSize="14" TextColor="#2D89C8" TextDecorations="Underline" LineBreakMode="WordWrap" />
-
-                    <Border Stroke="{AppThemeBinding Light=#E3E7EE, Dark=#2A2F3A}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 16"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#181C24}"
-                            Padding="14">
-                        <VerticalStackLayout Spacing="10">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Text="Text to Speech" FontSize="16" FontAttributes="Bold" TextColor="#D31963" />
-                                <Border Grid.Column="1"
-                                        Stroke="#D31963"
-                                        StrokeThickness="1.4"
-                                        StrokeShape="RoundRectangle 18"
-                                        BackgroundColor="#FFF4F8"
-                                        Padding="12,6">
-                                    <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding ToggleSpeechLanguageMenuCommand}" />
-                                    </Border.GestureRecognizers>
-                                    <Border.Triggers>
-                                        <DataTrigger TargetType="Border" Binding="{Binding CanEditSpeechText}" Value="False">
-                                            <Setter Property="IsVisible" Value="False" />
-                                        </DataTrigger>
-                                    </Border.Triggers>
-                                    <Label Text="{Binding SelectedSpeechLanguageDisplayText}"
-                                           FontSize="14"
-                                           TextColor="#D31963"
-                                           VerticalTextAlignment="Center" />
-                                </Border>
-                            </Grid>
-
-                            <VerticalStackLayout Spacing="8">
-                                <VerticalStackLayout.Triggers>
-                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding CanEditSpeechText}" Value="False">
-                                        <Setter Property="IsVisible" Value="False" />
-                                    </DataTrigger>
-                                </VerticalStackLayout.Triggers>
-
-                                <Editor Text="{Binding SpeechTextInput}"
-                                        Unfocused="OnSpeechTextEditorUnfocused"
-                                        AutoSize="TextChanges"
-                                        Placeholder="Nhập nội dung sẽ được đọc khi phát audio..."
-                                        BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light=#2B2D33, Dark=#EEF1F8}"
-                                        HeightRequest="140" />
-                                <Button Text="Lưu text TTS"
-                                        Command="{Binding SaveSpeechTextCommand}"
-                                        Style="{StaticResource PrimaryPillButtonStyle}"
-                                        HeightRequest="52"
-                                        CornerRadius="26"
-                                        FontSize="18" />
-                            </VerticalStackLayout>
-
-                            <Border Stroke="#D31963"
-                                    StrokeThickness="1"
-                                    StrokeShape="RoundRectangle 14"
-                                    BackgroundColor="#FFF4F8"
-                                    Padding="12,10">
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding CanEditSpeechText}" Value="True">
-                                        <Setter Property="IsVisible" Value="False" />
-                                    </DataTrigger>
-                                </Border.Triggers>
-                                <Label Text="Chỉ tài khoản có role Owner hoặc Admin mới được sửa text to speech trực tiếp trên app."
-                                       FontSize="13"
-                                       TextColor="#B51A50"
-                                       LineBreakMode="WordWrap" />
-                            </Border>
+                            <Label Text="Hoặc quét để xem các POI khác tại Chợ Vĩnh Khánh" 
+                       FontSize="12" 
+                       TextColor="Gray" 
+                       HorizontalTextAlignment="Center" />
                         </VerticalStackLayout>
                     </Border>
 
-                    <Grid ColumnDefinitions="*" Margin="0,10,0,10">
-                        <Button Text="View Tour"
-                                Command="{Binding ViewTourCommand}"
-                                Style="{StaticResource PrimaryPillButtonStyle}"
-                                HeightRequest="58"
-                                CornerRadius="28"
-                                FontSize="20" />
-                    </Grid>
                 </VerticalStackLayout>
             </ScrollView>
         </Border>

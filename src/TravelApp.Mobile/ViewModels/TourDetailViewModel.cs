@@ -832,7 +832,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
         try
         {
             var config = MauiProgram.Services.GetRequiredService<AppConfig>();
-            var adminBase = (config.AdminHost?.TrimEnd('/') ?? "http://192.168.5.36") + ":" + config.AdminPort;
+            var adminBase = (config.AdminHost?.TrimEnd('/') ?? "http://192.168.100.164") + ":" + config.AdminPort;
             var qrLink = $"{adminBase}/poi/detail/{dto.Id}";
             var qrUrl = config.QuickChartQrBase + System.Uri.EscapeDataString(qrLink);
             if (Tour is not null)

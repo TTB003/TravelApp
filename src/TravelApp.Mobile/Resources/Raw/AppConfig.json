@@ -1,6 +1,6 @@
 {
-  "ApiBaseUrl": "http://192.168.5.36:5001",
-  "AdminHost": "http://192.168.5.36",
+  "ApiBaseUrl": "http://192.168.100.164:5001",
+  "AdminHost": "http://192.168.100.164",
   "AdminPort": 7020,
   "QuickChartQrBase": "https://quickchart.io/qr?size=400&text="
 }

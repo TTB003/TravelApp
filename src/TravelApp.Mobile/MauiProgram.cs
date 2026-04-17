@@ -25,7 +25,7 @@ namespace TravelApp
 #if DEBUG
             // Use the developer machine IP so physical devices and emulators can reach the API.
             // The server will be configured to listen on http://0.0.0.0:5001.
-            return "http://192.168.5.36:5001/";
+            return "http://192.168.100.164:5001/";
 #else
             return "https://api.your-domain.com/";
 #endif
