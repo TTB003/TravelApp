@@ -18,6 +18,8 @@ public class PublicController : Controller
         _options = options.Value;
     }
 
+    [Route("")]
+    [Route("Public")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         var pois = await _apiClient.GetPoisAsync("vi", cancellationToken);
@@ -25,8 +27,10 @@ public class PublicController : Controller
         return View(pois);
     }
 
+    [HttpGet]
     public IActionResult Scanner()
     {
+        // Hiển thị giao diện quét mã QR giống QrScannerPage.cs trên Mobile
         return View();
     }
 
@@ -44,7 +48,8 @@ public class PublicController : Controller
             poi = null;
         }
 
-        var apiBaseUrl = _options.BaseUrl?.TrimEnd('/');
+        // Đảm bảo API Port 5001 được truyền xuống để phát Audio
+        var apiBaseUrl = _options.BaseUrl?.TrimEnd('/') ?? "http://localhost:5001";
         ViewData["ApiBaseUrl"] = apiBaseUrl;
         return View("~/Views/Public/Detail.cshtml", poi as object);
     }

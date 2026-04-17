@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+﻿﻿using Microsoft.Extensions.Logging;
 using Plugin.Maui.Audio;
 using TravelApp.Handlers;
 using TravelApp.Models.Runtime;
@@ -22,10 +22,16 @@ namespace TravelApp
 
         private static string ResolveApiBaseUrl()
         {
+            // Đối với Android Emulator, 10.0.2.2 là địa chỉ trỏ ngược về localhost của máy tính host
 #if DEBUG
-            // Use the developer machine IP so physical devices and emulators can reach the API.
-            // The server will be configured to listen on http://0.0.0.0:5001.
-            return "http://192.168.100.164:5001/";
+            if (DeviceInfo.DeviceType == DeviceType.Virtual && DeviceInfo.Platform == DevicePlatform.Android)
+            {
+                return "http://10.0.2.2:5001/";
+            }
+            
+            // Sử dụng IP máy thật của bạn để các thiết bị vật lý có thể truy cập
+            var hostIp = "192.168.100.164"; 
+            return $"http://{hostIp}:5001/";
 #else
             return "https://api.your-domain.com/";
 #endif
@@ -83,10 +89,12 @@ namespace TravelApp
             {
             }
 
+            config.ApiBaseUrl = ResolveApiBaseUrl();
+
             builder.Services.AddSingleton(config);
             builder.Services.AddSingleton(new ApiClientOptions
             {
-                BaseUrl = config.ApiBaseUrl
+                BaseUrl = config.ApiBaseUrl.EndsWith("/") ? config.ApiBaseUrl : config.ApiBaseUrl + "/"
             });
             builder.Services.AddSingleton(new CachePolicyOptions
             {
@@ -138,7 +146,8 @@ namespace TravelApp
             builder.Services.AddTransient<MapViewModel>();
             builder.Services.AddTransient<QrScannerPage>();
 
-            builder.Services.AddSingleton<AppShell>();
+            // Chuyển sang Transient để giao diện nạp lại hoàn toàn khi đổi ngôn ngữ
+            builder.Services.AddTransient<AppShell>();
 
             var app = builder.Build();
             Services = app.Services;

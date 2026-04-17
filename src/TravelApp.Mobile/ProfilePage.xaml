@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:TravelApp"
              x:Class="TravelApp.ProfilePage"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource TravelPageLight}, Dark={StaticResource TravelPageDark}}">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <local:LangToBackgroundConverter x:Key="LangToBackgroundConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*">
         <Grid BackgroundColor="#E31667" Padding="16,48,16,16" ColumnDefinitions="40,*,40">
@@ -129,10 +136,34 @@
                                         StrokeShape="RoundRectangle 16"
                                         BackgroundColor="#EEF8FB"
                                         VerticalOptions="Center">
-                                    <Label Text="🌐" FontSize="16" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                                    <Label Text="🌐" FontSize="18" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
                                 </Border>
                                 <Label Grid.Column="1" Text="Language" FontSize="20" TextColor="{AppThemeBinding Light=#1F1F24, Dark=#E6EBF7}" VerticalTextAlignment="Center" />
-                                <Label Grid.Column="2" Text="VI" FontSize="18" TextColor="{AppThemeBinding Light=#3D3D45, Dark=#B4BDCF}" VerticalTextAlignment="Center" />
+                                
+                                <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center" Margin="0,0,4,0">
+                                    <Button Text="VI" 
+                                            FontSize="11"
+                                            FontAttributes="Bold"
+                                            HeightRequest="32"
+                                            WidthRequest="42"
+                                            Padding="0"
+                                            CornerRadius="16"
+                                            BackgroundColor="{Binding BindingContext.CurrentLanguage, Source={RelativeSource AncestorType={x:Type local:ProfilePage}}, Converter={StaticResource LangToBackgroundConverter}, ConverterParameter='vi-VN'}"
+                                            TextColor="White"
+                                            Command="{Binding ChangeLanguageCommand}"
+                                            CommandParameter="vi-VN" />
+                                    <Button Text="EN" 
+                                            FontSize="11"
+                                            FontAttributes="Bold"
+                                            HeightRequest="32"
+                                            WidthRequest="42"
+                                            Padding="0"
+                                            CornerRadius="16"
+                                            BackgroundColor="{Binding BindingContext.CurrentLanguage, Source={RelativeSource AncestorType={x:Type local:ProfilePage}}, Converter={StaticResource LangToBackgroundConverter}, ConverterParameter='en-US'}"
+                                            TextColor="White"
+                                            Command="{Binding ChangeLanguageCommand}"
+                                            CommandParameter="en-US" />
+                                </HorizontalStackLayout>
                             </Grid>
 
                             <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F0F0F3, Dark=#2A2F3A}" />
@@ -237,7 +268,3 @@
         </ScrollView>
     </Grid>
 </ContentPage>
-
-
-
-

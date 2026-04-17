@@ -242,6 +242,7 @@ public class PoisController : Controller
     {
         // Ensure no trailing slash
         if (baseUrl.EndsWith('/')) baseUrl = baseUrl.TrimEnd('/');
+        // Đảm bảo mã QR dẫn khách du lịch đến trang Public mượt mà
         return $"{baseUrl}/Public/Poi/{poiId}";
     }
 

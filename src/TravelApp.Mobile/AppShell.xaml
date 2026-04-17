@@ -4,15 +4,16 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:TravelApp"
+    xmlns:services="clr-namespace:TravelApp.Mobile.Services"
     Title="TravelApp">
 
     <ShellContent
-        Title="Explore"
+        Title="{Binding ExploreTitle, Source={x:Static services:LocalizationManager.Instance}}"
         ContentTemplate="{DataTemplate local:ExplorePage}"
         Route="ExplorePage" />
 
     <ShellContent
-        Title="Map"
+        Title="{Binding MapTitle, Source={x:Static services:LocalizationManager.Instance}}"
         ContentTemplate="{DataTemplate local:MapPage}"
         Route="MapPage" />
 

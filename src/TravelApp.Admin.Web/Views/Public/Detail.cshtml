@@ -2,31 +2,34 @@
 @{
     Layout = "_PublicLayout";
     ViewData["Title"] = Model.Title;
-    var apiBaseUrl = ViewData["ApiBaseUrl"];
+    var apiBaseUrl = (ViewData["ApiBaseUrl"]?.ToString() ?? "http://192.168.100.164:5293").TrimEnd('/');
+    var heroImageUrl = string.IsNullOrEmpty(Model.ImageUrl) 
+        ? "https://placehold.co/800x1000/161A21/8E94A4?text=POI" 
+        : (Model.ImageUrl.StartsWith("http") ? Model.ImageUrl : $"{apiBaseUrl}/{Model.ImageUrl.TrimStart('/')}");
 }
 
 <div class="poi-hero-wrapper position-relative">
     <div class="poi-hero position-relative">
-        <img src="@(string.IsNullOrEmpty(Model.ImageUrl) ? "https://placehold.co/600x400/000/fff?text=POI" : Model.ImageUrl)" class="w-100" style="height: 400px; object-fit: cover;" />
-        <div class="position-absolute top-0 start-0 w-100 p-3 d-flex justify-content-between">
-            <a href="javascript:history.back()" class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(0,0,0,0.5);"><i class="bi bi-chevron-left"></i></a>
-            <button class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(0,0,0,0.5);"><i class="bi bi-bookmark"></i></button>
+        <img src="@heroImageUrl" class="w-100" style="height: 600px; object-fit: cover;" />
+        <div class="position-absolute top-0 start-0 w-100 p-4 d-flex justify-content-between" style="z-index: 10;">
+            <a href="javascript:history.back()" class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.15);"><i class="bi bi-chevron-left fs-4"></i></a>
+            <button class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.15);"><i class="bi bi-bookmark fs-4"></i></button>
         </div>
-        <div class="position-absolute bottom-0 start-0 w-100 p-4" style="background: linear-gradient(transparent, #0F1115);">
-            <span class="badge-category mb-2">@Model.Category</span>
-            <h1 class="fw-bold mb-1">@Model.Title</h1>
-            <div class="d-flex align-items-center text-white-50 small">
-                <i class="bi bi-geo-alt-fill accent-color me-2"></i>
-                <span>@Model.Location</span>
+        <div class="position-absolute bottom-0 start-0 w-100 p-4 pb-5" style="background: linear-gradient(to top, #000000 20%, rgba(0,0,0,0.8) 50%, transparent 100%); padding-bottom: 110px !important;">
+            <span class="badge-category mb-3" style="font-size: 11px; letter-spacing: 1px;">@Model.Category</span>
+            <h1 class="fw-bold mb-2" style="font-size: 38px; letter-spacing: -1.5px; line-height: 1.1;">@Model.Title</h1>
+            <div class="d-flex align-items-center" style="color: rgba(255,255,255,0.9);">
+                <i class="bi bi-geo-alt-fill me-2" style="color: #E31667;"></i>
+                <span class="fw-semibold">@Model.Location</span>
             </div>
         </div>
     </div>
 </div>
 
 <div class="container py-4 px-4">
-    <div class="d-grid gap-3 mb-4">
-        <button id="playBtn" class="btn btn-primary py-3 rounded-pill fw-bold shadow-lg" onclick="toggleAudio()">
-            <i class="bi bi-play-circle-fill me-2 fs-5"></i> PHÁT HƯỚNG DẪN ÂM THANH
+    <div class="mb-5 text-center position-relative" style="z-index: 20; margin-top: -95px;">
+        <button id="playBtn" class="btn py-3 rounded-pill fw-bold w-100 d-flex align-items-center justify-content-center" style="background-color: #E31667; color: white; height: 76px; font-size: 18px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 20px 40px rgba(227, 22, 103, 0.45); border: none;" onclick="toggleAudio()">
+            <i class="bi bi-play-circle-fill me-3 fs-3"></i> NGHE THUYẾT MINH AUDIO
         </button>
         <audio id="mainAudio" src="@apiBaseUrl/api/pois/@Model.Id/audio"></audio>
     </div>

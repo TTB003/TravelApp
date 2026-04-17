@@ -110,19 +110,12 @@
                             <Grid ColumnDefinitions="*,Auto" Grid.Row="0">
                                 <Label Text="Thuyết Minh" TextColor="White" FontSize="16" FontAttributes="Bold" VerticalOptions="Center" />
 
-                                <HorizontalStackLayout Grid.Column="1" Spacing="8">
-                                    <Border StrokeShape="RoundRectangle 12" WidthRequest="26" HeightRequest="26" BackgroundColor="#D31963" StrokeThickness="0">
-                                        <Label Text="VN" TextColor="White" FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
-                                    </Border>
-                                    <Border StrokeShape="RoundRectangle 12" WidthRequest="26" HeightRequest="26" BackgroundColor="Transparent" Stroke="White" StrokeThickness="1">
-                                        <Label Text="EN" TextColor="White" FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
-                                    </Border>
-                                </HorizontalStackLayout>
+                                
                             </Grid>
 
                             <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,16,0,0" ColumnSpacing="16" VerticalOptions="Center">
                                 <Border StrokeShape="RoundRectangle 24" WidthRequest="48" HeightRequest="48" BackgroundColor="#E31667" StrokeThickness="0">
-                                    <Path Data="M8,5V19L19,12Z" Fill="White" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center" Margin="4,0,0,0" />
+                                    <Path Data="M8,5V19L19,12Z" Fill="White" WidthRequest="20" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center" Margin="1,0,0,0" />
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding PlayAudioCommand}" />
                                     </Border.GestureRecognizers>
@@ -139,16 +132,7 @@
                         </Grid>
                     </Border>
 
-                    <Border BackgroundColor="#2D2D2D" 
-                StrokeThickness="0" 
-                StrokeShape="RoundRectangle 12" 
-                Padding="16" 
-                Margin="0,0,0,16">
-                        <Label Text="{Binding Tour.AudioDescription}" 
-                   TextColor="White" 
-                   FontSize="14" 
-                   LineBreakMode="WordWrap" />
-                    </Border>
+                   
 
                     <!-- Description block restored -->
                     <Label Text="{Binding Tour.Description}" 

@@ -1,6 +1,7 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:TravelApp"
+             xmlns:services="clr-namespace:TravelApp.Mobile.Services"
              x:Class="TravelApp.ExplorePage"
              BackgroundColor="{AppThemeBinding Light={StaticResource TravelPageLight}, Dark={StaticResource TravelPageDark}}"
              Shell.NavBarIsVisible="False">
@@ -72,8 +73,6 @@
                 </Border>
 
                 <Border Grid.Column="1"
-                        Stroke="#E84C7F"
-                        StrokeThickness="2"
                         StrokeShape="RoundRectangle 22"
                         BackgroundColor="{AppThemeBinding Light=White, Dark=#202635}"
                         Padding="14,0,4,0"
@@ -83,7 +82,7 @@
                         <TapGestureRecognizer Command="{Binding OpenSearchCommand}" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="*,40" ColumnSpacing="0">
-                        <Label Text="Explore destinations"
+                        <Label Text="{Binding SearchPlaceholder, Source={x:Static services:LocalizationManager.Instance}}"
                                TextColor="{AppThemeBinding Light=#5D6D79, Dark=#B4BDCF}"
                                FontSize="14"
                                VerticalTextAlignment="Center" />
@@ -122,12 +121,12 @@
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenQrScannerCommand}" />
                     </Border.GestureRecognizers>
-                    <Label Text="QR"
-                           FontSize="12"
-                           FontAttributes="Bold"
-                           TextColor="White"
-                           HorizontalTextAlignment="Center"
-                           VerticalTextAlignment="Center" />
+                    <Image Source="qr_icon.png" 
+                           WidthRequest="24" 
+                           HeightRequest="24" 
+                           Aspect="AspectFit"
+                           HorizontalOptions="Center" 
+                           VerticalOptions="Center" />
                 </Border>
 
                 <Border Grid.Column="3"
@@ -136,17 +135,16 @@
                         StrokeShape="RoundRectangle 20"
                         WidthRequest="40"
                         HeightRequest="40"
-                        AutomationProperties.Name="Current location indicator"
+                        AutomationProperties.Name="Change Language"
                         VerticalOptions="Center"
                         HorizontalOptions="Center">
-                    <Border Stroke="#CCFFFFFF"
-                            StrokeThickness="1.5"
-                            StrokeShape="RoundRectangle 8"
-                            WidthRequest="10"
-                            HeightRequest="10"
-                            BackgroundColor="White"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Center" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ChangeLanguageCommand, Source={x:Static services:LocalizationManager.Instance}}" />
+                    </Border.GestureRecognizers>
+                    <Label Text="{Binding CurrentLanguageFlag, Source={x:Static services:LocalizationManager.Instance}}"
+                           FontSize="20"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
                 </Border>
             </Grid>
         </Grid>
@@ -156,7 +154,7 @@
             <VerticalStackLayout Padding="14,14,14,8" Spacing="14">
 
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
-                    <Label Text="Around me" Style="{StaticResource SectionTitleStyle}" />
+                    <Label Text="{Binding AroundMeText, Source={x:Static services:LocalizationManager.Instance}}" Style="{StaticResource SectionTitleStyle}" />
 
                     <Border Grid.Column="1"
                             StrokeThickness="0"
@@ -165,7 +163,7 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenMapCommand}" />
                         </Border.GestureRecognizers>
-                        <Label Text="POI Map"
+                        <Label Text="{Binding PoiMapText, Source={x:Static services:LocalizationManager.Instance}}"
                                FontSize="14"
                                FontAttributes="Bold"
                                TextColor="{StaticResource PrimaryAccent}"
@@ -180,7 +178,7 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenTourMapRouteCommand}" />
                         </Border.GestureRecognizers>
-                        <Label Text="Map view"
+                        <Label Text="{Binding MapViewText, Source={x:Static services:LocalizationManager.Instance}}"
                                FontSize="14"
                                FontAttributes="Bold"
                                TextColor="{StaticResource PrimaryAccent}"
@@ -208,13 +206,13 @@
                         <TapGestureRecognizer Command="{Binding OpenNowPlayingCommand}" />
                     </Border.GestureRecognizers>
                     <VerticalStackLayout Spacing="2">
-                        <Label x:Name="AudioStatusTextLabel"
-                               Text="Đang phát audio"
+                        <Label x:Name="AudioPoiTitleLabel"
+                               Text=""
                                FontSize="13"
                                FontAttributes="Bold"
                                TextColor="White" />
-                        <Label x:Name="AudioPoiTitleLabel"
-                               Text=""
+                        <Label x:Name="AudioStatusTextLabel"
+                               Text="Đang phát audio"
                                FontSize="13"
                                TextColor="#E6FFF7"
                                LineBreakMode="TailTruncation" />
@@ -224,7 +222,7 @@
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center" Margin="0,12,0,8">
                     <Label Text="🍲 Ho Chi Minh Food Tour" Style="{StaticResource SectionTitleStyle}" />
                     <Label Grid.Column="1"
-                           Text="Featured"
+                           Text="{Binding FeaturedText, Source={x:Static services:LocalizationManager.Instance}}"
                            FontSize="12"
                            FontAttributes="Bold"
                            TextColor="#FF9800"
@@ -408,7 +406,7 @@
                     </Border>
 
                     <Label Grid.Column="1"
-                           Text="No Stories available"
+                           Text="{Binding NoStoriesText, Source={x:Static services:LocalizationManager.Instance}}"
                            TextColor="White"
                            FontSize="20"
                            HorizontalTextAlignment="Center"
@@ -456,7 +454,7 @@
                             <TapGestureRecognizer Command="{Binding OpenMapCommand}" />
                         </Border.GestureRecognizers>
                         <Grid ColumnDefinitions="*,Auto" Padding="0,0,18,0">
-                            <Label Text="Start"
+                            <Label Text="{Binding StartText, Source={x:Static services:LocalizationManager.Instance}}"
                                    TextColor="White"
                                    FontSize="18"
                                    FontAttributes="Bold"
@@ -478,7 +476,7 @@
                 StrokeThickness="0"
                 BackgroundColor="{AppThemeBinding Light=White, Dark=#171B23}"
                 StrokeShape="RoundRectangle 30,30,0,0"
-                Padding="14,10,14,14">
+                Padding="14,10,14,12">
             <Grid ColumnDefinitions="*,*,*,*,*" VerticalOptions="Center">
 
                 <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
@@ -516,7 +514,7 @@
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Grid.Column="1" Spacing="4" HorizontalOptions="Center">
-                    <Border WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding SelectBottomTabCommand}" CommandParameter="Discover" />
                         </Border.GestureRecognizers>
@@ -549,7 +547,8 @@
                     </Label>
                 </VerticalStackLayout>
 
-                <Border Grid.Column="2" WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}" HorizontalOptions="Center" VerticalOptions="Center">
+                <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectBottomTabCommand}" CommandParameter="MyTours" />
                     </Border.GestureRecognizers>
@@ -570,9 +569,11 @@
                             </DataTrigger>
                         </Path.Triggers>
                     </Path>
-                </Border>
+                    </Border>
+                </VerticalStackLayout>
 
-                <Border Grid.Column="3" WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}" HorizontalOptions="Center" VerticalOptions="Center">
+                <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectBottomTabCommand}" CommandParameter="Saved" />
                     </Border.GestureRecognizers>
@@ -593,9 +594,11 @@
                             </DataTrigger>
                         </Path.Triggers>
                     </Path>
-                </Border>
+                    </Border>
+                </VerticalStackLayout>
 
-                <Border Grid.Column="4" WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}" HorizontalOptions="Center" VerticalOptions="Center">
+                <VerticalStackLayout Grid.Column="4" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border WidthRequest="52" HeightRequest="52" StrokeThickness="0" StrokeShape="RoundRectangle 26" BackgroundColor="{AppThemeBinding Light=#F3F4F8, Dark=#202635}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectBottomTabCommand}" CommandParameter="Menu" />
                     </Border.GestureRecognizers>
@@ -628,6 +631,8 @@
                         </BoxView>
                     </VerticalStackLayout>
                 </Border>
+                </VerticalStackLayout>
+                
             </Grid>
         </Border>
 
@@ -661,7 +666,7 @@
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
                                 <Path Data="M6,12H16M13,9L16,12L13,15" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeLineJoin="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Column="1" Text="{Binding AuthMenuText}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding AuthMenuText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding SignInOutCommand}" />
                             </Grid.GestureRecognizers>
@@ -671,7 +676,7 @@
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
                                 <Path Data="M12,6A3,3 0 1,0 12,12A3,3 0 1,0 12,6M6,18C6,15.8 8.7,14 12,14C15.3,14 18,15.8 18,18" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Column="1" Text="My Profile" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding ProfileText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenProfileCommand}" />
                             </Grid.GestureRecognizers>
@@ -683,7 +688,7 @@
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
                                 <Path Data="M7,8H17V17C17,17.55 16.55,18 16,18H8C7.45,18 7,17.55 7,17V8M9,8V7A1,1 0 0,1 10,6H14A1,1 0 0,1 15,7V8" Stroke="White" StrokeThickness="1.6" StrokeLineCap="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Column="1" Text="{Binding PurchasesMenuText}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding PurchasesMenuText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenMyAudioLibraryCommand}" />
                             </Grid.GestureRecognizers>
@@ -693,7 +698,7 @@
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
                                 <Path Data="M12,6A6,6 0 1,0 12,18A6,6 0 1,0 12,6M12,9V12L14.5,13.5" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeLineJoin="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Column="1" Text="History" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding HistoryText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenHistoryCommand}" />
                             </Grid.GestureRecognizers>
@@ -703,7 +708,7 @@
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
                                 <Path Data="M8,6H16V18L12,15.3L8,18V6Z" Fill="White" WidthRequest="12" HeightRequest="12" HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Column="1" Text="Bookmarks" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding BookmarksText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenBookmarksCommand}" />
                             </Grid.GestureRecognizers>
@@ -713,7 +718,7 @@
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
                                 <Path Data="M7,8H17V16H7V8M9,11H15M9,13H13" Stroke="White" StrokeThickness="1.6" StrokeLineCap="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Column="1" Text="Debug Console" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding DebugMenuText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenDebugConsoleCommand}" />
                             </Grid.GestureRecognizers>
@@ -733,6 +738,3 @@
     </Grid>
 
 </ContentPage>
-
-
-

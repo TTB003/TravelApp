@@ -7,6 +7,6 @@
   <Project Path="src/TravelApp.Mobile/TravelApp.Mobile.csproj">
     <Deploy Solution="Debug|*" />
   </Project>
-  <Project Path="TravelApp.Web/TravelApp.Web.csproj" Id="ff3821d5-3cf0-4c85-9f77-1c31651ac9e5" />
+  <Project Path="src/TravelApp.Web/TravelApp.Web.csproj" />
 </Solution>
 

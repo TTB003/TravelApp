@@ -292,10 +292,12 @@ static async Task EnsureTourSchemaAsync(TravelAppDbContext dbContext)
     {
         using var tourCommand = connection.CreateCommand();
         tourCommand.CommandText = "SELECT OBJECT_ID(N'[Tours]')";
+        tourCommand.CommandTimeout = 60;
         var toursObjectId = await tourCommand.ExecuteScalarAsync();
 
         using var tourPoisCommand = connection.CreateCommand();
         tourPoisCommand.CommandText = "SELECT OBJECT_ID(N'[TourPois]')";
+        tourPoisCommand.CommandTimeout = 60;
         var tourPoisObjectId = await tourPoisCommand.ExecuteScalarAsync();
 
         if (toursObjectId is not null and not DBNull && tourPoisObjectId is not null and not DBNull)

@@ -1,7 +1,8 @@
 @model TravelApp.Application.Dtos.Pois.PoiMobileDto
 @{
     ViewData["Title"] = Model.Title;
-    var apiBaseUrl = "http://localhost:5001";
+    // Sử dụng IP thực tế thay vì localhost để đảm bảo các thiết bị trong mạng có thể truy cập
+    var apiBaseUrl = "http://192.168.100.164:5001";
 }
 
 <div class="container mt-4">
