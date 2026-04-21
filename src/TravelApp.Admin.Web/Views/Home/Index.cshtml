@@ -1,10 +1,86 @@
-﻿@{
-    ViewData["Title"] = "Home";
+﻿@model IEnumerable<TravelApp.Application.Dtos.Pois.PoiMobileDto>
+@{
+    Layout = "_PublicLayout"; // Sử dụng layout riêng không có sidebar admin
+    ViewData["Title"] = "Explorer";
 }
 
-<div class="card admin-card shadow-sm">
-    <div class="card-body">
-        <h1 class="h4 fw-bold mb-2">Đang chuyển hướng</h1>
-        <p class="text-muted mb-0">Trang chủ sẽ tự động đưa bạn tới dashboard quản trị.</p>
+<div class="mobile-view">
+    <div class="header-gradient p-3">
+        <div class="d-flex align-items-center gap-2">
+            <div class="btn-circle-glass"><i class="bi bi-list"></i></div>
+            <div class="search-container flex-grow-1">
+                <input type="text" placeholder="Chercher" class="mobile-search-input" />
+                <div class="btn-pink-search"><i class="bi bi-search"></i></div>
+            </div>
+            <div class="btn-circle-glass"><i class="bi bi-qr-code-scan"></i></div>
+            <div class="lang-flag"><img src="https://flagcdn.com/w40/fr.png" width="24" /></div>
+        </div>
+    </div>
+
+    <div class="content-scrollable p-3">
+        <div class="d-flex justify-content-between mb-3">
+            <h5 class="fw-bold m-0">Autour de moi</h5>
+            <div class="text-pink small fw-bold">Carte POI &nbsp; Vue carte</div>
+        </div>
+
+        <div class="map-box mb-4">
+            <img src="https://i.stack.imgur.com/HILmr.png" class="map-img" />
+            <div class="map-btns">
+                <div class="map-btn"><i class="bi bi-crosshair"></i></div>
+                <div class="map-zoom">
+                    <i class="bi bi-plus mb-2"></i>
+                    <i class="bi bi-dash"></i>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="fw-bold mb-3">🍲 Ho Chi Minh Food Tour <span class="float-end text-warning small">Vedette</span></h5>
+        <div class="horizontal-scroll">
+            @foreach(var poi in Model ?? Enumerable.Empty<TravelApp.Application.Dtos.Pois.PoiMobileDto>()) {
+                <a href="/Pois/Details/@poi.Id" class="poi-card-mobile">
+                    <div class="card-img-container">
+                        <img src="@poi.ImageUrl" />
+                        <div class="img-overlay-title">@poi.Title</div>
+                        <div class="distance-tag">~ m | ~ min</div>
+                        <div class="btn-up-circle"><i class="bi bi-arrow-up"></i></div>
+                    </div>
+                    <div class="p-3">
+                        <div class="fw-bold text-dark">@poi.Title</div>
+                        <div class="text-muted small">@poi.Subtitle</div>
+                    </div>
+                </a>
+            }
+        </div>
+    </div>
+
+    <div class="mobile-nav">
+        <div class="nav-item active"><i class="bi bi-compass-fill"></i></div>
+        <div class="nav-item"><i class="bi bi-record-circle"></i></div>
+        <div class="nav-item"><i class="bi bi-list-ul"></i></div>
+        <div class="nav-item"><i class="bi bi-bookmark"></i></div>
+        <div class="nav-item"><i class="bi bi-person"></i></div>
     </div>
 </div>
+
+<style>
+    .mobile-view { background: #f8f9fa; min-height: 100vh; padding-bottom: 80px; font-family: 'Inter', sans-serif; }
+    .header-gradient { background: linear-gradient(135deg, #0d4b5b 0%, #1a7585 100%); color: white; }
+    .mobile-search-input { width: 100%; border-radius: 50px; border: none; padding: 8px 45px 8px 20px; font-size: 0.9rem; }
+    .search-container { position: relative; }
+    .btn-pink-search { position: absolute; right: 5px; top: 4px; background: #e91e63; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+    .btn-circle-glass { width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .map-box { position: relative; border-radius: 20px; overflow: hidden; height: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .map-img { width: 100%; height: 100%; object-fit: cover; }
+    .map-btns { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 10px; }
+    .map-btn, .map-zoom { background: white; border-radius: 10px; padding: 8px; color: #444; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
+    .horizontal-scroll { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
+    .poi-card-mobile { min-width: 280px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05); text-decoration: none; }
+    .card-img-container { height: 160px; position: relative; }
+    .card-img-container img { width: 100%; height: 100%; object-fit: cover; }
+    .img-overlay-title { position: absolute; top: 50%; left: 0; width: 100%; text-align: center; transform: translateY(-50%); color: rgba(0,0,0,0.4); font-weight: 800; font-size: 1.5rem; }
+    .distance-tag { position: absolute; bottom: 12px; left: 12px; background: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; color: #333; }
+    .btn-up-circle { position: absolute; top: 12px; right: 12px; background: white; color: #e91e63; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .mobile-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 70px; background: white; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #eee; z-index: 1000; }
+    .nav-item { font-size: 1.5rem; color: #ccc; }
+    .nav-item.active { color: #e91e63; background: #fce4ec; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+</style>

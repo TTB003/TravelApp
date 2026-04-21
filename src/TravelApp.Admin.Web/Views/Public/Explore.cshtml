@@ -1,0 +1,304 @@
+@model IEnumerable<TravelApp.Application.Dtos.Pois.PoiMobileDto>
+@using TravelApp.Admin.Web.Helpers
+@{
+    Layout = "_MobileLayout";
+    var currentLang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
+    var isLoggedIn = Context.Request.Cookies["AuthToken"] != null;
+}
+<style>
+    .mobile-header {
+        background: linear-gradient(135deg, #0E8AA8 0%, #1B5D9A 100%);
+        padding: 48px 14px 14px 14px;
+        color: white;
+    }
+
+    .search-container {
+        display: grid;
+        grid-template-columns: 40px 1fr 40px 40px;
+        gap: 10px; align-items: center;
+    }
+
+    .header-icon-btn {
+        width: 40px; height: 40px; border-radius: 20px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        border: none; color: white; cursor: pointer;
+    }
+
+    .search-bar {
+        background: white;
+        border-radius: 22px;
+        height: 48px;
+        padding: 0 4px 0 14px;
+        display: flex; align-items: center;
+    }
+
+    .search-bar input {
+        border: none; outline: none; flex: 1;
+        font-size: 14px; color: #5D6D79;
+    }
+
+    .search-btn-pink {
+        background: #D61B63;
+        color: white;
+        border-radius: 50%;
+        width: 40px; height: 40px;
+        display: flex; align-items: center; justify-content: center;
+        border: none;
+    }
+
+    /* POI Card Style đồng bộ 5.png */
+    .poi-card {
+        flex: 0 0 312px;
+        scroll-snap-align: center;
+        background: white;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #E8EBF2;
+        margin-bottom: 10px;
+        text-decoration: none !important; color: inherit;
+    }
+
+    .poi-img-container {
+        height: 160px;
+        background-size: cover;
+        background-position: center;
+        position: relative; cursor: pointer;
+    }
+
+    .poi-scroll-wrapper {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        gap: 15px;
+        padding: 5px 0 25px 0;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .poi-info { padding: 14px 10px 14px 12px; }
+    .poi-title { font-weight: 700; font-size: 16px; margin-bottom: 2px; color: #161922; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .poi-subtitle { color: #6E7380; font-size: 13px; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .poi-meta { font-size: 12px; color: #6E7380; display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+    .meta-item { display: flex; align-items: center; gap: 4px; }
+
+    #langOverlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 9999;
+        display: none; align-items: flex-end;
+    }
+    .lang-sheet {
+        background: white; width: 100%; border-radius: 24px 24px 0 0;
+        padding: 20px; animation: slideUp 0.3s ease-out;
+    }
+    @@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .lang-option {
+        display: flex; align-items: center; gap: 15px; padding: 15px;
+        border-bottom: 1px solid #f0f0f0; color: #333; text-decoration: none; font-weight: 500;
+    }
+    
+    .section-label {
+        font-weight: 700; font-size: 1.2rem; margin: 24px 0 12px 0;
+        display: flex; align-items: center; gap: 10px;
+    }
+
+    /* Trending Section Styles */
+    .trending-card {
+        flex: 0 0 220px;
+        background: #F8F9FB;
+        border-radius: 16px;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        text-decoration: none !important;
+        color: inherit;
+    }
+    .trending-img {
+        width: 70px; height: 70px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+    .trending-info { flex: 1; min-width: 0; }
+    .trending-title { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .trending-loc { font-size: 11px; color: #8C93A5; }
+    
+    .hot-badge {
+        background: #FFE0E0;
+        color: #D32F2F;
+        font-size: 10px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        margin: 4px 0;
+    }
+</style>
+
+<div class="mobile-header">
+    <div class="search-container">
+        <button class="header-icon-btn" onclick="toggleDrawer()"><i class="bi bi-list fs-4"></i></button>
+        <div class="search-bar">
+            <input type="text" placeholder="@WebLocalizationHelper.Get("Search", currentLang)">
+            <button class="search-btn-pink"><i class="bi bi-search"></i></button>
+        </div>
+        <div class="header-icon-btn">
+            <i class="bi bi-qr-code-scan"></i>
+        </div>
+        <div class="rounded-circle overflow-hidden border border-2 border-white cursor-pointer" 
+             style="width: 40px; height: 40px;" onclick="showLangMenu()">
+            <img src="https://flagcdn.com/w40/@(currentLang == "vi" ? "vn" : currentLang == "en" ? "us" : currentLang).png" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+    </div>
+</div>
+
+<!-- Language Overlay (Mobile Style) -->
+<div id="langOverlay" onclick="hideLangMenu()">
+    <div class="lang-sheet" onclick="event.stopPropagation()">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="m-0 fw-bold">@(currentLang == "vi" ? "Chọn ngôn ngữ" : "Select Language")</h5>
+            <button class="btn-close" onclick="hideLangMenu()"></button>
+        </div>
+        <div class="lang-option" onclick="setLang('vi')">
+            <img src="https://flagcdn.com/w40/vn.png" width="24"> Tiếng Việt 🇻🇳
+        </div>
+        <div class="lang-option" onclick="setLang('en')">
+            <img src="https://flagcdn.com/w40/us.png" width="24"> English 🇺🇸
+        </div>
+        <div class="lang-option" onclick="setLang('fr')">
+            <img src="https://flagcdn.com/w40/fr.png" width="24"> Français 🇫🇷
+        </div>
+        <div class="lang-option" onclick="setLang('ja')" style="border: none;">
+            <img src="https://flagcdn.com/w40/jp.png" width="24"> 日本語 🇯🇵
+        </div>
+    </div>
+</div>
+
+<div class="content-scroll p-3">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="m-0 fw-bold fs-4">@WebLocalizationHelper.Get("AroundMe", currentLang)</h2>
+        <div class="text-pink small fw-bold" style="color: var(--mobile-pink)">@WebLocalizationHelper.Get("PoiMap", currentLang) &nbsp; @WebLocalizationHelper.Get("MapView", currentLang)</div>
+    </div>
+    
+    <div class="position-relative mt-3 mb-4">
+        <div id="poiMap" class="rounded-4 overflow-hidden border" style="height: 200px; background: #e3f2fd;"></div>
+    </div>
+
+    @if (Model != null)
+    {
+        <!-- 1. Trending Section (Địa điểm Hot) -->
+        <div class="section-label">@WebLocalizationHelper.Get("TrendingTitle", currentLang)</div>
+        <div class="poi-scroll-wrapper mb-2">
+            @foreach (var poi in Model.Take(5))
+            {
+                <a href="@Url.Action("Details", "Public", new { id = poi.Id, area = "" })" class="trending-card shadow-sm">
+                    <img src="@poi.ImageUrl" class="trending-img" />
+                    <div class="trending-info">
+                        <div class="trending-title">@poi.Title</div>
+                        <div class="hot-badge"><span>🔥</span> @WebLocalizationHelper.Get("PopularNow", currentLang)</div>
+                        <div class="trending-loc">@poi.Location</div>
+                    </div>
+                </a>
+            }
+        </div>
+
+        <!-- 2. Ho Chi Minh Food Tour -->
+        <div class="section-label">
+            <span>🍲</span> @WebLocalizationHelper.Get("HcmFoodTour", currentLang)
+            <span class="ms-auto badge bg-transparent text-warning p-0 fw-bold">@WebLocalizationHelper.Get("Featured", currentLang)</span>
+        </div>
+        <div class="poi-scroll-wrapper">
+            @foreach (var poi in Model.Where(p => p.Category?.Contains("Ho Chi Minh") == true || p.Category?.Contains("HCM") == true).DefaultIfEmpty(Model.FirstOrDefault()))
+            {
+                @if(poi == null) continue;
+                <div class="poi-card shadow-sm" onclick="location.href='@Url.Action("Details", "Public", new { id = poi.Id, area = "" })'">
+                    <div class="poi-img-container" style="background-image: url('@poi.ImageUrl')"></div>
+                    <div class="poi-info">
+                        <div class="poi-title">@poi.Title</div>
+                        <div class="poi-subtitle">@poi.Subtitle</div>
+                        <div class="poi-meta">
+                            <div class="meta-item">⏱️ <span>~45 min</span></div>
+                            <div class="meta-item">🎯 <span>~2.5 km</span></div>
+                        </div>
+                        <div class="poi-meta">
+                            <div class="meta-item">📍 <span class="text-truncate" style="max-width: 200px;">@poi.Location</span></div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- 3. Hanoi Food Tour -->
+        <div class="section-label">
+            <span>🍜</span> @WebLocalizationHelper.Get("HanoiFoodTour", currentLang)
+        </div>
+        <div class="poi-scroll-wrapper">
+            @foreach (var poi in Model.Where(p => p.Category?.Contains("Hanoi") == true))
+            {
+                <div class="poi-card" onclick="location.href='@Url.Action("Details", "Public", new { id = poi.Id, area = "" })'">
+                    <div class="poi-img-container" style="background-image: url('@poi.ImageUrl')"></div>
+                    <div class="poi-info">
+                        <div class="poi-title">@poi.Title</div>
+                        <div class="poi-subtitle">@poi.Subtitle</div>
+                        <div class="poi-meta">
+                            <i class="bi bi-geo-alt-fill text-danger"></i> <span>@poi.Location</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+
+<div class="bottom-nav">
+    <a href="#" class="nav-item active">
+        <div class="nav-btn-circle"><i class="bi bi-compass"></i></div>
+    </a>
+    <a href="#" class="nav-item"><div class="nav-btn-circle"><i class="bi bi-record-circle"></i></div></a>
+    <a href="#" class="nav-item"><div class="nav-btn-circle"><i class="bi bi-card-list"></i></div></a>
+    <a href="#" class="nav-item"><div class="nav-btn-circle"><i class="bi bi-bookmark"></i></div></a>
+    <a href="javascript:void(0)" class="nav-item" onclick="if(typeof toggleDrawer === 'function') toggleDrawer()"><div class="nav-btn-circle"><i class="bi bi-list"></i></div></a>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Khởi tạo Map
+        var map;
+        document.addEventListener('DOMContentLoaded', function() {
+            // Đặt vị trí mặc định tại SGU: khu vực Bà Huyện Thanh Quan, Q3
+            map = L.map('poiMap', { zoomControl: false }).setView([10.7760, 106.6853], 15);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+
+            @foreach (var poi in Model) {
+                if (poi.Latitude != 0) {
+                    @:L.marker([@poi.Latitude, @poi.Longitude]).addTo(map).bindPopup("<b>@poi.Title</b>");
+                }
+            }
+
+            // Marker giả lập vị trí người dùng tại SGU Bà Huyện Thanh Quan
+            L.circleMarker([10.7793043, 106.6842107], { 
+                radius: 10, color: 'white', weight: 3, fillOpacity: 1, fillColor: '#0D6EFD' 
+            }).addTo(map);
+
+        });
+
+        function showLangMenu() {
+            document.getElementById('langOverlay').style.display = 'flex';
+        }
+
+        function hideLangMenu() {
+            document.getElementById('langOverlay').style.display = 'none';
+        }
+
+        function setLang(lang) {
+            fetch('/Public/SetLanguage?lang=' + lang, { method: 'POST' })
+                .then(() => window.location.reload());
+        }
+    </script>
+}

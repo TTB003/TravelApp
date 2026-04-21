@@ -1,9 +1,10 @@
-﻿﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Plugin.Maui.Audio;
 using TravelApp.Handlers;
 using TravelApp.Models.Runtime;
 using TravelApp.Services.Abstractions;
 using TravelApp.Services.Api;
+using TravelApp.Mobile.Services;
 using TravelApp.Services.Runtime;
 using TravelApp.ViewModels;
 using ZXing.Net.Maui.Controls;
@@ -30,7 +31,7 @@ namespace TravelApp
             }
             
             // Sử dụng IP máy thật của bạn để các thiết bị vật lý có thể truy cập
-            var hostIp = "192.168.100.164"; 
+            var hostIp = "172.20.10.14"; 
             return $"http://{hostIp}:5001/";
 #else
             return "https://api.your-domain.com/";
@@ -113,6 +114,7 @@ namespace TravelApp
             builder.Services.AddTransient<ITourRouteCatalogService, TourRouteCatalogService>();
             builder.Services.AddSingleton<ITourRouteGeometryService, AzureMapsRouteGeometryService>();
             builder.Services.AddTransient<IPoiApiService, PoiApiService>();
+            builder.Services.AddSingleton<ITranslationService, TranslationService>();
             builder.Services.AddSingleton<IQrCodeParserService, QrCodeParserService>();
 
             builder.Services.AddSingleton(TimeProvider.System);

@@ -1,0 +1,196 @@
+@using TravelApp.Admin.Web.Helpers
+<!DOCTYPE html>
+<html lang="vi">
+@{
+    var currentLang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
+    var isLoggedIn = User.Identity?.IsAuthenticated ?? false;
+}
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TravelApp Mobile Web</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --mobile-pink: #e91e63;
+            --mobile-bg: #f8f9fa;
+            --mobile-teal: #006080;
+        }
+
+        body {
+            background-color: #333;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Khung giả lập điện thoại */
+        .mobile-container {
+            width: 100%;
+            max-width: 414px;
+            height: 100vh;
+            max-height: 896px;
+            background-color: var(--mobile-bg);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        @@media (min-width: 576px) {
+            .mobile-container {
+                border-radius: 30px;
+                margin: 20px;
+                height: calc(100vh - 40px);
+            }
+        }
+
+        /* Sidebar (Drawer) giống 1.png */
+        .mobile-drawer {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 80%;
+            height: 100%;
+            background-color: var(--mobile-pink);
+            z-index: 1050;
+            transition: left 0.3s ease;
+            color: white;
+            padding: 40px 20px;
+        }
+
+        .mobile-drawer.open { left: 0; }
+
+        .drawer-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+            display: none;
+        }
+        .drawer-overlay.active { display: block; }
+
+        .drawer-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+        }
+
+        .drawer-icon {
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Bottom Nav giống 2.png, 5.png */
+        .bottom-nav {
+            height: 70px;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #eee;
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 1000;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #ccc;
+            text-decoration: none;
+            font-size: 0.7rem;
+        }
+
+        .nav-item.active { color: var(--mobile-pink); }
+        .nav-item i { font-size: 1.5rem; }
+        .nav-btn-circle {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .active .nav-btn-circle { background: var(--mobile-pink); color: white; }
+
+        .content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .content-scroll::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        @Html.AntiForgeryToken()
+        <div class="drawer-overlay" id="drawerOverlay"></div>
+        <div class="mobile-drawer" id="mobileDrawer">
+            <div class="text-center mb-5">
+                <button class="btn border-0 text-white fs-3" onclick="toggleDrawer()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            @if (!isLoggedIn)
+            {
+                <a href="/Public/Login" class="drawer-item"><div class="drawer-icon"><i class="bi bi-box-arrow-in-right"></i></div> @WebLocalizationHelper.Get("Login", currentLang)</a>
+            }
+            else
+            {
+                <a href="javascript:logout()" class="drawer-item"><div class="drawer-icon"><i class="bi bi-box-arrow-right"></i></div> @WebLocalizationHelper.Get("Logout", currentLang)</a>
+                <a href="@Url.Action("Profile", "Public", new { area = "" })" class="drawer-item"><div class="drawer-icon"><i class="bi bi-person-circle"></i></div> @WebLocalizationHelper.Get("Profile", currentLang)</a>
+                
+                @if (User.IsInRole("Admin") || User.IsInRole("Owner") || User.IsInRole("SuperAdmin"))
+                {
+                    <a href="@Url.Action("Index", "Pois")" class="drawer-item"><div class="drawer-icon"><i class="bi bi-shield-lock"></i></div> @WebLocalizationHelper.Get("AdminDashboard", currentLang)</a>
+                }
+            }
+            <hr class="bg-white opacity-25">
+            <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-music-note-beamed"></i></div> @WebLocalizationHelper.Get("Purchases", currentLang)</a>
+            <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-clock-history"></i></div> @WebLocalizationHelper.Get("History", currentLang)</a>
+            <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-bookmark"></i></div> @WebLocalizationHelper.Get("Bookmarks", currentLang)</a>
+            <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-terminal"></i></div> @WebLocalizationHelper.Get("Debug", currentLang)</a>
+        </div>
+
+        @RenderBody()
+
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+    <script>
+        function toggleDrawer() {
+            document.getElementById('mobileDrawer').classList.toggle('open');
+            document.getElementById('drawerOverlay').classList.toggle('active');
+        }
+        document.getElementById('drawerOverlay').onclick = toggleDrawer;
+
+        async function logout() {
+            // Xóa cookies thủ công
+            document.cookie = "AuthToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "UserRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            
+            // Gọi server để xóa session/cookie auth chính thức
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            try {
+                await fetch('/Auth/Logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ '__RequestVerificationToken': token })
+                });
+            } catch (e) { console.error("Logout error:", e); }
+            
+            location.href = '/';
+        }
+    </script>
+</body>
+</html>

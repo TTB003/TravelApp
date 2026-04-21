@@ -1,0 +1,126 @@
+@using TravelApp.Admin.Web.Helpers
+@{
+    Layout = null; // Loại bỏ layout để trang Login hiển thị độc lập
+    var lang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
+}
+<!DOCTYPE html>
+<html lang="@lang">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>@WebLocalizationHelper.Get("Login", lang)</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+<style>
+    body { background-color: #F4F4F5; }
+    .auth-container { padding: 56px 26px 28px 26px; display: flex; flex-direction: column; gap: 18px; }
+    
+    .back-btn {
+        width: 42px; height: 42px; border-radius: 21px; border: 1px solid #D6DCE8;
+        background: white; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; margin-bottom: 20px;
+    }
+    
+    .auth-title { font-size: 32px; font-weight: 800; color: #1B1C22; margin-bottom: 8px; }
+    .auth-subtitle { font-size: 16px; color: #6E7380; line-height: 1.4; margin-bottom: 10px; }
+    
+    .input-border {
+        background: white; border: 1px solid #D6DCE8; border-radius: 12px;
+        padding: 4px 16px; height: 56px; display: flex; align-items: center;
+    }
+    .auth-input { border: none; outline: none; width: 100%; font-size: 16px; }
+    
+    .btn-primary-pill {
+        background-color: #D61B63; color: white; border-radius: 28px;
+        height: 56px; font-weight: 700; border: none; margin-top: 6px;
+    }
+    
+    .btn-quick-owner {
+        background-color: #FFC107; color: black; border-radius: 25px;
+        height: 50px; font-weight: 700; border: none;
+    }
+    
+    .forgot-link { color: #B73A6D; font-size: 16px; text-align: right; text-decoration: none; }
+    .demo-text { color: #8A8A93; font-size: 14px; text-align: center; margin-top: 20px; }
+</style>
+</head>
+<body>
+    <div class="auth-container">
+        @Html.AntiForgeryToken()
+        <div class="back-btn" onclick="history.back()">
+            <i class="bi bi-x-lg text-dark"></i>
+        </div>
+
+        <div>
+            <div class="auth-title">@WebLocalizationHelper.Get("Login", lang)</div>
+            <div class="auth-subtitle">@WebLocalizationHelper.Get("AuthSubtitle", lang)</div>
+        </div>
+
+        <div class="input-border">
+            <input type="email" id="emailInput" class="auth-input" placeholder="@WebLocalizationHelper.Get("EmailPlaceholder", lang)">
+        </div>
+
+        <div class="input-border justify-content-between">
+            <input type="password" id="pwdInput" class="auth-input" placeholder="@WebLocalizationHelper.Get("PasswordPlaceholder", lang)">
+            <button class="btn p-0 text-muted" onclick="togglePwd()">Show</button>
+        </div>
+
+        <button class="btn btn-primary-pill w-100" onclick="doLogin()">@WebLocalizationHelper.Get("Login", lang)</button>
+        
+        <button class="btn btn-quick-owner w-100" onclick="quickLogin()">@WebLocalizationHelper.Get("QuickLoginOwner", lang)</button>
+
+        <a href="#" class="forgot-link">@WebLocalizationHelper.Get("ForgotPassword", lang)</a>
+
+        <div class="demo-text">
+            Demo credentials: demo@example.com / Demo@123456
+        </div>
+    </div>
+
+<script>
+    function togglePwd() {
+        var x = document.getElementById("pwdInput");
+        if (x.type === "password") { x.type = "text"; } else { x.type = "password"; }
+    }
+
+    function quickLogin() {
+        document.getElementById('emailInput').value = 'owner@example.com';
+        document.getElementById('pwdInput').value = '123456';
+        doLogin();
+    }
+
+    async function doLogin() {
+        const email = document.getElementById('emailInput').value;
+        const pwd = document.getElementById('pwdInput').value;
+
+        if (!email || !pwd) {
+            alert("@WebLocalizationHelper.Get("LoginErrorEmpty", lang)");
+            return;
+        }
+
+        // Thực hiện Login thật lên Server (AuthController) để cấp Cookie Authentication
+        try {
+            const response = await fetch('/Auth/Login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'UserName': email,
+                    'Password': pwd,
+                    'RememberMe': 'true',
+                    '__RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                })
+            });
+
+            if (response.ok) {
+                // Vẫn giữ AuthToken để tương thích với một số logic cũ nếu cần
+                document.cookie = "AuthToken=authenticated; path=/";
+                window.location.href = '/Public/Explore';
+            } else {
+                alert("@WebLocalizationHelper.Get("LoginFailed", lang)");
+            }
+        } catch (e) {
+            alert("Lỗi kết nối máy chủ");
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+@model IEnumerable<dynamic>
+@{
+    ViewData["Title"] = "POI Heatmap";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #heatmap { height: 700px; width: 100%; border-radius: 15px; position: relative; }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="section-header mb-4">
+        <div>
+            <h1 class="section-title">Bản đồ nhiệt điểm tham quan</h1>
+            <p class="section-subtitle">Phân tích mật độ POI dựa trên vị trí địa lý.</p>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div id="heatmap"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script>
+        // Đặt vị trí mặc định tại SGU Cơ sở 1: 273 An Dương Vương, Q5
+        var map = L.map('heatmap').setView([10.7599, 106.6822], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Chuyển đổi dữ liệu Model sang định dạng Heatmap [lat, lng, intensity]
+        var heatData = [
+            @foreach (var poi in Model)
+            {
+                // Lấy giá trị VisitCount thực tế đã tính toán từ Controller
+                // Gán tối thiểu 0.1 để Leaflet có thể vẽ được vùng màu xanh dương cho điểm 0 lượt truy cập
+                @:[@poi.Latitude, @poi.Longitude, @Math.Max(0.1, poi.VisitCount)],
+            }
+        ];
+
+        if (heatData.length > 0) {
+            // THƯỚC ĐO: Lấy địa điểm có lượt truy cập cao nhất làm chuẩn
+            var counts = heatData.map(p => p[2]);
+            var benchmark = Math.max(...counts, 1); // Đảm bảo không chia cho 0
+            
+            var heat = L.heatLayer(heatData, {
+                radius: 40,
+                blur: 20,
+                maxZoom: 15,
+                max: benchmark, // Địa điểm cao nhất là mốc 100% (Đỏ)
+                gradient: { 
+                    0.0: '#0000FF', // Xanh dương (Blue) - Không ai truy cập
+                    0.5: '#00FF00', // Xanh lá (Lime) - Truy cập vừa
+                    1.0: '#FF0000'  // Đỏ (Red) - Truy cập nhiều nhất (Thước đo)
+                }
+            }).addTo(map);
+            
+            // Tự động căn chỉnh map theo dữ liệu
+            var bounds = new L.LatLngBounds(heatData.map(p => [p[0], p[1]]));
+            map.fitBounds(bounds);
+        }
+
+        // Vẽ marker mờ hơn để không che mất lớp nhiệt (Heatmap)
+        @foreach (var poi in Model)
+        {
+            <text>
+            L.circleMarker([@poi.Latitude, @poi.Longitude], {
+                radius: 5, color: '#0056b3', weight: 1, fillOpacity: 0.7, fillColor: '#007bff'
+            }).bindPopup("<b>@poi.Title</b>").addTo(map);
+            </text>
+        }
+    </script>
+}

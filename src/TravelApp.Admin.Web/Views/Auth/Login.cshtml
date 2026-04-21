@@ -12,23 +12,57 @@
             <p class="text-muted mb-0">CMS Phố Ẩm Thực Việt</p>
         </div>
 
-        <form asp-action="Login" method="post" class="vstack gap-3">
+        <form id="adminLoginForm" class="vstack gap-3">
+            @Html.AntiForgeryToken()
             <input type="hidden" asp-for="ReturnUrl" />
             <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
 
             <div>
                 <label asp-for="UserName" class="form-label">Tài khoản</label>
-                <input asp-for="UserName" class="form-control form-control-lg auth-input" placeholder="admin" />
+                <input asp-for="UserName" id="userName" class="form-control form-control-lg auth-input" placeholder="admin" />
                 <span asp-validation-for="UserName" class="text-danger small"></span>
             </div>
 
             <div>
                 <label asp-for="Password" class="form-label">Mật khẩu</label>
-                <input asp-for="Password" class="form-control form-control-lg auth-input" placeholder="••••••••" />
+                <input asp-for="Password" id="password" type="password" class="form-control form-control-lg auth-input" placeholder="••••••••" />
                 <span asp-validation-for="Password" class="text-danger small"></span>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-lg w-100 auth-button">Đăng nhập</button>
+            <button type="button" onclick="handleAdminLogin()" class="btn btn-primary btn-lg w-100 auth-button">Đăng nhập</button>
         </form>
     </div>
 </div>
+
+<script>
+    async function handleAdminLogin() {
+        const email = document.getElementById('userName').value;
+        const pwd = document.getElementById('password').value;
+        const returnUrl = document.getElementById('ReturnUrl').value || '/admin';
+
+        if (!email || !pwd) return;
+
+        try {
+            const response = await fetch('/Auth/Login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'UserName': email,
+                    'Password': pwd,
+                    'RememberMe': 'true',
+                    '__RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                })
+            });
+
+            if (response.ok) {
+                // Đồng bộ AuthToken cho Mobile Layout
+                document.cookie = "AuthToken=authenticated; path=/";
+                window.location.href = returnUrl;
+            } else {
+                alert("Đăng nhập thất bại. Vui lòng kiểm tra lại.");
+            }
+        } catch (e) {
+            alert("Lỗi kết nối server.");
+        }
+    }
+</script>

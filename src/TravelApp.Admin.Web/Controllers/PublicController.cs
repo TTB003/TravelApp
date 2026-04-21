@@ -1,56 +1,97 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using TravelApp.Admin.Web.Services;
 using TravelApp.Application.Dtos.Pois;
 
 namespace TravelApp.Admin.Web.Controllers;
 
-[AllowAnonymous]
+[AllowAnonymous] // Quan trọng: Cho phép truy cập trang login mà không cần đăng nhập trước
 public class PublicController : Controller
 {
     private readonly ITravelAppApiClient _apiClient;
-    private readonly TravelAppApiOptions _options;
 
-    public PublicController(ITravelAppApiClient apiClient, IOptions<TravelAppApiOptions> options)
+    public PublicController(ITravelAppApiClient apiClient)
     {
         _apiClient = apiClient;
-        _options = options.Value;
     }
 
-    [Route("")]
-    [Route("Public")]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public IActionResult Index()
     {
-        var pois = await _apiClient.GetPoisAsync("vi", cancellationToken);
-        ViewData["ApiBaseUrl"] = _options.BaseUrl?.TrimEnd('/');
+        return RedirectToAction("Explore");
+    }
+
+    public async Task<IActionResult> Explore(CancellationToken cancellationToken)
+    {
+        var currentLang = Request.Cookies["SelectedLanguage"] ?? "vi";
+        var pois = await _apiClient.GetPoisAsync(currentLang, cancellationToken);
         return View(pois);
     }
 
-    [HttpGet]
-    public IActionResult Scanner()
+    public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
     {
-        // Hiển thị giao diện quét mã QR giống QrScannerPage.cs trên Mobile
-        return View();
+        var currentLang = Request.Cookies["SelectedLanguage"] ?? "vi";
+        var poi = await _apiClient.GetPoiAsync(id, currentLang, cancellationToken);
+        if (poi == null) 
+        {
+            // Nếu không thấy POI, quay lại trang Explore thay vì hiện 404
+            return RedirectToAction("Explore");
+        }
+        return View(poi);
     }
 
-    [HttpGet]
-    [Route("Public/Poi/{id:int}")]
-    public async Task<IActionResult> Detail(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> TourMap(int tourId, int? poiId, CancellationToken cancellationToken)
     {
-        PoiMobileDto? poi = null;
-        try
+        var currentLang = Request.Cookies["SelectedLanguage"] ?? "vi";
+        var tour = await _apiClient.GetTourAsync(tourId, cancellationToken);
+        
+        // Lấy danh sách POI đầy đủ để hiển thị tọa độ trên bản đồ Leaflet
+        var allPois = await _apiClient.GetPoisAsync(currentLang, cancellationToken);
+        List<PoiMobileDto> tourPois = new();
+        
+        if (tour != null && tour.Pois != null && tour.Pois.Any())
         {
-            poi = await _apiClient.GetPoiAsync(id, "vi", cancellationToken);
+            // TRƯỜNG HỢP 1: Có Tour chính thức được định nghĩa trong Admin
+            ViewBag.TourName = tour.Name;
+            var tourPoiIds = tour.Pois.OrderBy(x => x.SortOrder).Select(x => x.PoiId).ToList();
+            tourPois = allPois.Where(p => tourPoiIds.Contains(p.Id))
+                              .OrderBy(p => tourPoiIds.IndexOf(p.Id))
+                              .ToList();
         }
-        catch
+        else
         {
-            poi = null;
+            // TRƯỜNG HỢP 2: Không có Tour chính thức, nhóm các POI theo Category (Food Tour)
+            var fallbackPoi = allPois?.FirstOrDefault(p => p.Id == tourId);
+            if (fallbackPoi != null && !string.IsNullOrEmpty(fallbackPoi.Category))
+            {
+                ViewBag.TourName = fallbackPoi.Category;
+                // Lấy tất cả các POI thuộc cùng danh mục (ví dụ: "Ho Chi Minh Food Tour")
+                tourPois = allPois.Where(p => p.Category == fallbackPoi.Category).ToList();
+            }
+            else if (fallbackPoi != null)
+            {
+                ViewBag.TourName = fallbackPoi.Title;
+                tourPois = new List<PoiMobileDto> { fallbackPoi };
+            }
         }
 
-        // Đảm bảo API Port 5001 được truyền xuống để phát Audio
-        var apiBaseUrl = _options.BaseUrl?.TrimEnd('/') ?? "http://localhost:5001";
-        ViewData["ApiBaseUrl"] = apiBaseUrl;
-        return View("~/Views/Public/Detail.cshtml", poi as object);
+        return View(tourPois);
+    }
+
+    public IActionResult Login()
+    {
+        return View(); // Trả về Views/Public/Login.cshtml
+    }
+
+    public IActionResult Profile()
+    {
+        return View(); // Trả về Views/Public/Profile.cshtml
+    }
+
+    [HttpPost]
+    public IActionResult SetLanguage(string lang)
+    {
+        Response.Cookies.Append("SelectedLanguage", lang, new Microsoft.AspNetCore.Http.CookieOptions 
+        { Expires = DateTimeOffset.UtcNow.AddYears(1), Path = "/" });
+        return Ok();
     }
 }

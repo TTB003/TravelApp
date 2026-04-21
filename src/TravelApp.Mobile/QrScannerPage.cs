@@ -337,9 +337,17 @@ public sealed class QrScannerPage : ContentPage
             }
 
             _statusLabel.Text = $"Đã tìm thấy: {poi.Title}";
+            
+            // Ghi nhận lượt quét về server
+            try {
+                var config = MauiProgram.Services.GetRequiredService<AppConfig>();
+                var client = new HttpClient();
+                await client.PostAsync($"{config.ApiBaseUrl}web/api/pois/{poiId.Value}/qr-scan", null);
+            } catch { /* Ignore error for analytics */ }
+
             await Shell.Current.GoToAsync("..");
             await Task.Delay(150);
-            await Shell.Current.GoToAsync($"Pois/Details?id={poiId.Value}");
+            await Shell.Current.GoToAsync($"TourDetailPage?tourId={poiId.Value}");
         }
         catch (Exception ex)
         {

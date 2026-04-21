@@ -23,9 +23,8 @@ builder.Services.AddCors(options =>
             try
             {
                 var uri = new Uri(origin);
-                // Allow new developer IP 192.168.100.164 as well as previous 192.168.5.36
-                return string.Equals(uri.Host, "192.168.100.164", StringComparison.OrdinalIgnoreCase)
-                       || string.Equals(uri.Host, "192.168.5.36", StringComparison.OrdinalIgnoreCase);
+                // Allow developer IP 172.20.10.14
+                return string.Equals(uri.Host, "172.20.10.14", StringComparison.OrdinalIgnoreCase);
             }
             catch
             {
@@ -94,6 +93,8 @@ using (var scope = app.Services.CreateScope())
     await EnsurePoiSpeechTextColumnAsync(dbContext);
     await EnsurePoiSpeechTextsColumnAsync(dbContext);
     await EnsurePoiSpeechTextLanguageCodeColumnAsync(dbContext);
+    await EnsurePoiQrScanCountColumnAsync(dbContext);
+    await EnsurePoiAudioPlayCountColumnAsync(dbContext);
 }
 
 if (app.Environment.IsDevelopment())
@@ -118,6 +119,69 @@ app.MapGet("/health", () => Results.Ok(new
     Status = "OK",
     Service = "TravelApp.Api"
 }));
+
+// Endpoint lấy thống kê tổng quan cho Admin
+app.MapGet("/api/admin/dashboard-stats", async (TravelAppDbContext dbContext) =>
+{
+    var userCount = await dbContext.Users.CountAsync();
+    var poiCount = await dbContext.Pois.CountAsync();
+
+    // Phải có AS [Value] để EF mapping đúng giá trị scalar từ SQL subquery
+    var totalQrScans = await dbContext.Database.SqlQueryRaw<int>("SELECT CAST(ISNULL(SUM(QrScanCount), 0) AS INT) AS [Value] FROM POI").FirstOrDefaultAsync();
+    var totalAudioPlays = await dbContext.Database.SqlQueryRaw<int>("SELECT CAST(ISNULL(SUM(AudioPlayCount), 0) AS INT) AS [Value] FROM POI").FirstOrDefaultAsync();
+
+    return Results.Ok(new {
+        PoiCount = poiCount,                // Tổng POI
+        UserCount = userCount,              // User
+        PublishedTourCount = totalAudioPlays, // Trả về tổng lượt nghe
+        QrCount = totalQrScans              // Trả về tổng lượt quét
+    });
+});
+
+// Endpoint lấy chi tiết lượt truy cập từng POI để Admin phân biệt
+app.MapGet("/api/admin/poi-stats", async (TravelAppDbContext dbContext) =>
+{
+    // Sử dụng Raw SQL để lấy dữ liệu thống kê chi tiết từng địa điểm
+    var sql = "SELECT Id, Title, Category, ISNULL(QrScanCount, 0) AS QrScans, ISNULL(AudioPlayCount, 0) AS AudioPlays FROM POI";
+    var stats = await dbContext.Database.SqlQueryRaw<PoiStatResult>(sql).ToListAsync();
+    
+    // Sắp xếp và chỉ lấy Top 10 địa điểm hoạt động mạnh nhất
+    var topStats = stats.OrderByDescending(x => x.QrScans + x.AudioPlays).Take(10).ToList();
+    return Results.Ok(topStats);
+});
+
+// Endpoint ghi nhận lượt quét QR
+app.MapPost("/api/pois/{id}/qr-scan", async (int id, TravelAppDbContext dbContext) =>
+{
+    // Cập nhật trực tiếp vào DB bằng SQL để tránh lỗi Property Not Found của EF
+    var affected = await dbContext.Database.ExecuteSqlRawAsync(
+        "UPDATE POI SET QrScanCount = ISNULL(QrScanCount, 0) + 1 WHERE Id = {0}", id);
+    
+    if (affected == 0) return Results.NotFound();
+    return Results.NoContent();
+});
+
+// Endpoint ghi nhận lượt quét QR từ trình duyệt và chuyển hướng về Web UI
+app.MapGet("/api/pois/{id}/qr-track", async (int id, string redirectUrl, TravelAppDbContext dbContext) =>
+{
+    // Tăng bộ đếm quét QR
+    await dbContext.Database.ExecuteSqlRawAsync(
+        "UPDATE POI SET QrScanCount = ISNULL(QrScanCount, 0) + 1 WHERE Id = {0}", id);
+    
+    // Chuyển hướng người dùng tới trang Web công khai
+    return Results.Redirect(redirectUrl);
+});
+
+// Endpoint ghi nhận lượt nghe Audio
+app.MapPost("/api/pois/{id}/audio-play", async (int id, TravelAppDbContext dbContext) =>
+{
+    // Cập nhật lượt nghe bằng SQL
+    var affected = await dbContext.Database.ExecuteSqlRawAsync(
+        "UPDATE POI SET AudioPlayCount = ISNULL(AudioPlayCount, 0) + 1 WHERE Id = {0}", id);
+
+    if (affected == 0) return Results.NotFound();
+    return Results.NoContent();
+});
 
 static bool ShouldBaselineLegacyDatabase(TravelAppDbContext dbContext)
 {
@@ -237,6 +301,63 @@ static async Task EnsurePoiSpeechTextsColumnAsync(TravelAppDbContext dbContext)
         }
 
         await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE [POI] ADD [SpeechTextsJson] nvarchar(max) NULL;");
+    }
+    finally
+    {
+        if (shouldClose)
+        {
+            await connection.CloseAsync();
+        }
+    }
+}
+
+static async Task EnsurePoiQrScanCountColumnAsync(TravelAppDbContext dbContext)
+{
+    var connection = dbContext.Database.GetDbConnection();
+    var shouldClose = connection.State != System.Data.ConnectionState.Open;
+
+    if (shouldClose)
+    {
+        await connection.OpenAsync();
+    }
+
+    try
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'POI' AND COLUMN_NAME = 'QrScanCount'";
+        var exists = Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
+
+        if (!exists)
+        {
+            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE [POI] ADD [QrScanCount] int NULL DEFAULT 0;");
+        }
+    }
+    finally
+    {
+        if (shouldClose) await connection.CloseAsync();
+    }
+}
+
+static async Task EnsurePoiAudioPlayCountColumnAsync(TravelAppDbContext dbContext)
+{
+    var connection = dbContext.Database.GetDbConnection();
+    var shouldClose = connection.State != System.Data.ConnectionState.Open;
+
+    if (shouldClose)
+    {
+        await connection.OpenAsync();
+    }
+
+    try
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'POI' AND COLUMN_NAME = 'AudioPlayCount'";
+        var exists = Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
+
+        if (!exists)
+        {
+            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE [POI] ADD [AudioPlayCount] int NULL DEFAULT 0;");
+        }
     }
     finally
     {
@@ -448,3 +569,5 @@ static async Task EnsurePoiSpeechTextLanguageCodeColumnAsync(TravelAppDbContext 
 }
 
 app.Run();
+
+public record PoiStatResult(int Id, string Title, string? Category, int QrScans, int AudioPlays);

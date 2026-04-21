@@ -1,4 +1,5 @@
 using TravelApp.ViewModels;
+using TravelApp.Mobile.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace TravelApp;

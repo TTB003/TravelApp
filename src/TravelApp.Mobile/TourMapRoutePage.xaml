@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelApp.Mobile.Services"
              x:Class="TravelApp.TourMapRoutePage"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#111318}">
@@ -25,7 +26,7 @@
             </Border>
 
             <Label Grid.Column="1"
-                   Text="Live Tour Route"
+                   Text="{Binding LiveRouteText, Source={x:Static services:LocalizationManager.Instance}}"
                    FontSize="28"
                    FontAttributes="Bold"
                    TextColor="{AppThemeBinding Light=#1B1F28, Dark=#F3F5FA}"
@@ -59,7 +60,7 @@
                              Color="#E31667" />
 
                     <VerticalStackLayout Grid.Column="1" Spacing="4">
-                        <Label Text="Đang phát" FontSize="11" TextColor="#E31667" FontAttributes="Bold" />
+                        <Label Text="{Binding NowPlayingText, Source={x:Static services:LocalizationManager.Instance}}" FontSize="11" TextColor="#E31667" FontAttributes="Bold" />
                         <Label Text="{Binding CurrentWaypointTitle}"
                                FontSize="16"
                                FontAttributes="Bold"
@@ -81,7 +82,7 @@
                                FontAttributes="Bold"
                                TextColor="#E31667"
                                HorizontalTextAlignment="End" />
-                        <Label Text="stops"
+                        <Label Text="{Binding StopsText, Source={x:Static services:LocalizationManager.Instance}}"
                                FontSize="10"
                                TextColor="{AppThemeBinding Light=#8A93A6, Dark=#9EA8BC}"
                                HorizontalTextAlignment="End" />
@@ -162,8 +163,11 @@
 
                             <VerticalStackLayout Grid.Column="1" Spacing="2">
                                 <HorizontalStackLayout Spacing="6">
-                                    <Label Text="{Binding SortOrder, StringFormat='Stop {0}'}" FontSize="11" TextColor="#E31667" />
-                                    <Label Text="ĐANG PHÁT" FontSize="10" TextColor="White" BackgroundColor="#E31667" Padding="8,2" HorizontalOptions="Start">
+                                    <HorizontalStackLayout Spacing="3">
+                                        <Label Text="{Binding StopText, Source={x:Static services:LocalizationManager.Instance}}" FontSize="11" TextColor="#E31667" />
+                                        <Label Text="{Binding SortOrder}" FontSize="11" TextColor="#E31667" />
+                                    </HorizontalStackLayout>
+                                    <Label Text="{Binding NowPlayingText, Source={x:Static services:LocalizationManager.Instance}, Converter={StaticResource UpperCaseConverter}}" FontSize="10" TextColor="White" BackgroundColor="#E31667" Padding="8,2" HorizontalOptions="Start">
                                         <Label.Triggers>
                                             <DataTrigger TargetType="Label" Binding="{Binding IsActive}" Value="False">
                                                 <Setter Property="IsVisible" Value="False" />
@@ -173,13 +177,13 @@
                                 </HorizontalStackLayout>
                                 <Label Text="{Binding Title}" FontSize="15" FontAttributes="Bold" LineBreakMode="TailTruncation" />
                                 <Label Text="{Binding Location}" FontSize="12" TextColor="{AppThemeBinding Light=#6E7380, Dark=#B4BDCF}" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding DistanceMeters, StringFormat='Distance: {0:F0} m'}"
+                                <Label Text="{Binding DistanceMeters, StringFormat='{0:F0} m'}"
                                        FontSize="11"
                                        TextColor="{AppThemeBinding Light=#8A93A6, Dark=#9EA8BC}" />
                             </VerticalStackLayout>
 
                             <Button Grid.Column="2"
-                                    Text="Open"
+                                    Text="{Binding OpenText, Source={x:Static services:LocalizationManager.Instance}}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenPoiCommand}"
                                     CommandParameter="{Binding .}"
                                     FontSize="12"

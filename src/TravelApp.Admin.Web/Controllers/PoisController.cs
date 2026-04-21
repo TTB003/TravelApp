@@ -10,10 +10,23 @@ namespace TravelApp.Admin.Web.Controllers;
 public class PoisController : Controller
 {
     private readonly ITravelAppApiClient _apiClient;
+    private readonly IConfiguration _configuration;
 
-    public PoisController(ITravelAppApiClient apiClient)
+    public PoisController(ITravelAppApiClient apiClient, IConfiguration configuration)
     {
         _apiClient = apiClient;
+        _configuration = configuration;
+    }
+
+    [AllowAnonymous]
+    [HttpGet("admin")]
+    public IActionResult AdminEntry()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToAction(nameof(Index));
+        }
+        return RedirectToAction("Login", "Auth", new { returnUrl = "/admin" });
     }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -30,7 +43,9 @@ public class PoisController : Controller
         {
             return NotFound();
         }
-        return View(poi);
+        var publicWebBaseUrl = GetPublicWebBaseUrl();
+        var model = ToEditorModel(poi, publicWebBaseUrl);
+        return View(model);
     }
 
     [Authorize(Roles = "Owner,Admin,SuperAdmin")]
@@ -86,8 +101,29 @@ public class PoisController : Controller
             return NotFound();
         }
 
-        var baseUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host.Value;
-        return View(ToEditorModel(poi, baseUrl));
+        // Xác định Host của Web UI để QR code trỏ về đúng trang detail công khai
+        var publicWebBaseUrl = GetPublicWebBaseUrl();
+        return View(ToEditorModel(poi, publicWebBaseUrl));
+    }
+
+    private string GetPublicWebBaseUrl()
+    {
+        var requestHost = HttpContext.Request.Host.Host;
+        var requestPort = HttpContext.Request.Host.Port ?? _configuration.GetValue<int>("TravelAppWeb:Port", 7020);
+
+        // Nếu đang chạy localhost, cố gắng lấy IP thật từ cấu hình API để điện thoại có thể quét được
+        if (requestHost.Contains("localhost") || requestHost == "127.0.0.1")
+        {
+            var apiBase = _configuration["TravelAppApi:BaseUrl"] ?? "";
+            var ip = apiBase.Replace("http://", "").Replace("https://", "").Split(':')[0].Split('/')[0].Trim();
+            if (!string.IsNullOrEmpty(ip) && ip != "localhost" && ip != "127.0.0.1")
+            {
+                requestHost = ip;
+            }
+        }
+
+        // Luôn dùng http cho mạng nội bộ để tránh lỗi SSL Certificate trên điện thoại
+        return $"http://{requestHost}:{requestPort}";
     }
 
     [HttpPost]
@@ -107,7 +143,8 @@ public class PoisController : Controller
             return NotFound();
         }
 
-        return RedirectToAction(nameof(Index));
+        // Sau khi lưu, quay lại trang Edit để xem QR Code mới sinh ra
+        return RedirectToAction(nameof(Edit), new { id });
     }
 
     [HttpPost]
@@ -126,7 +163,8 @@ public class PoisController : Controller
 
     private PoiEditorViewModel ToEditorModel(PoiMobileDto poi, string baseUrl)
     {
-        var qrContent = BuildPoiQrContent(poi.Id, baseUrl);
+        var apiBaseUrl = _configuration["TravelAppApi:BaseUrl"]?.TrimEnd('/');
+        var qrContent = BuildPoiQrContent(poi.Id, apiBaseUrl ?? string.Empty, baseUrl);
         var model = new PoiEditorViewModel
         {
             Id = poi.Id,
@@ -202,6 +240,22 @@ public class PoisController : Controller
 
     private static UpsertPoiRequestDto ToRequest(PoiEditorViewModel model)
     {
+        // Chuẩn bị danh sách SpeechTexts từ model
+        var speechTexts = model.SpeechTexts.Select(x => new UpsertPoiSpeechTextDto
+        {
+            LanguageCode = x.LanguageCode,
+            Text = x.Text
+        }).Where(x => !string.IsNullOrWhiteSpace(x.Text)).ToList();
+
+        // Logic đồng bộ: Nếu trong danh sách có nội dung cho ngôn ngữ đang chọn làm chính,
+        // chúng ta sẽ cập nhật trường SpeechText (singular) theo nội dung đó.
+        var mainSpeechText = model.SpeechText;
+        var matchingItem = speechTexts.FirstOrDefault(x => string.Equals(x.LanguageCode, model.SpeechTextLanguageCode, StringComparison.OrdinalIgnoreCase));
+        if (matchingItem != null)
+        {
+            mainSpeechText = matchingItem.Text;
+        }
+
         return new UpsertPoiRequestDto
         {
             Title = model.Title,
@@ -214,7 +268,7 @@ public class PoisController : Controller
             Longitude = model.Longitude,
             GeofenceRadiusMeters = model.GeofenceRadiusMeters,
             PrimaryLanguage = model.PrimaryLanguage,
-            SpeechText = model.SpeechText,
+            SpeechText = mainSpeechText,
             SpeechTextLanguageCode = model.SpeechTextLanguageCode,
             Localizations = model.Localizations.Select(x => new UpsertPoiLocalizationDto
             {
@@ -230,20 +284,17 @@ public class PoisController : Controller
                 Transcript = x.Transcript,
                 IsGenerated = false
             }).Where(x => !string.IsNullOrWhiteSpace(x.AudioUrl) || !string.IsNullOrWhiteSpace(x.Transcript)).ToList(),
-            SpeechTexts = model.SpeechTexts.Select(x => new UpsertPoiSpeechTextDto
-            {
-                LanguageCode = x.LanguageCode,
-                Text = x.Text
-            }).Where(x => !string.IsNullOrWhiteSpace(x.Text)).ToList()
+            SpeechTexts = speechTexts
         };
     }
 
-    private static string BuildPoiQrContent(int poiId, string baseUrl)
+    private static string BuildPoiQrContent(int poiId, string apiBaseUrl, string publicWebBaseUrl)
     {
-        // Ensure no trailing slash
-        if (baseUrl.EndsWith('/')) baseUrl = baseUrl.TrimEnd('/');
-        // Đảm bảo mã QR dẫn khách du lịch đến trang Public mượt mà
-        return $"{baseUrl}/Public/Poi/{poiId}";
+        if (publicWebBaseUrl.EndsWith('/')) publicWebBaseUrl = publicWebBaseUrl.TrimEnd('/');
+        
+        // Tạo link redirect qua API để tính lượt quét
+        var redirectUrl = $"{publicWebBaseUrl}/Public/Details/{poiId}";
+        return $"{apiBaseUrl}/api/pois/{poiId}/qr-track?redirectUrl={Uri.EscapeDataString(redirectUrl)}";
     }
 
     private static string BuildQrImageUrl(string qrContent)

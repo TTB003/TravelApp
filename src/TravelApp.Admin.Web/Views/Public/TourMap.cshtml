@@ -1,0 +1,308 @@
+@model IEnumerable<TravelApp.Application.Dtos.Pois.PoiMobileDto>
+@using TravelApp.Admin.Web.Helpers
+@{
+    Layout = "_MobileLayout";
+    var lang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
+    var totalCount = Model?.Count() ?? 0;
+    var firstPoi = Model?.FirstOrDefault();
+}
+
+<style>
+    body { background-color: #F6F7FB; }
+    .tour-map-page { display: flex; flex-direction: column; min-height: 100vh; }
+    .map-header { padding: 48px 16px 16px 16px; display: flex; align-items: center; gap: 12px; background: white; }
+    .back-circle { 
+        width: 40px; height: 40px; border-radius: 20px; background: white; border: 1px solid #D6DCE8;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .tour-map-view { height: 420px; margin: 0 16px; border-radius: 18px; overflow: hidden; border: 1px solid #E8EBF2; position: relative; }
+    
+    .waypoint-list { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .waypoint-card {
+        background: white; border-radius: 14px; padding: 12px;
+        border: 1px solid #E8EBF2; display: flex; gap: 12px; align-items: center;
+        transition: all 0.2s ease; cursor: pointer;
+    }
+    .waypoint-card.active { border-color: #E31667; background-color: #FFF2F7; }
+    
+    .stop-number {
+        width: 30px; height: 30px; border-radius: 15px; border: 1.5px solid #3F7DFF; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; color: #3F7DFF; font-weight: bold; font-size: 13px;
+    }
+    .active .stop-number { border-color: #E31667; background: #22E31667; color: #E31667; }
+    
+    .play-pause-btn {
+        width: 36px; height: 36px; border-radius: 18px; 
+        background: #E31667; color: white; border: none;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; cursor: pointer;
+        box-shadow: 0 4px 8px rgba(227, 22, 103, 0.3);
+    }
+
+    .waypoint-info { flex: 1; min-width: 0; }
+    .stop-label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+    .stop-text { color: #E31667; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+    .now-playing-badge { 
+        background: #E31667; color: white; font-size: 10px; padding: 2px 8px; 
+        border-radius: 4px; font-weight: bold; text-transform: uppercase;
+    }
+    .waypoint-title { font-size: 15px; font-weight: bold; color: #1B1F28; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .waypoint-loc { font-size: 12px; color: #6E7380; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .btn-open-poi {
+        background: #E31667; color: white; border-radius: 16px; border: none;
+        height: 32px; width: 72px; font-size: 12px; font-weight: bold;
+    }
+    
+    /* Map Controls giống Mobile */
+    .recenter-btn {
+        position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; 
+        background: #E31667; color: white; border-radius: 22px;
+        display: flex; align-items: center; justify-content: center; border: none; font-size: 20px; 
+        z-index: 1000; box-shadow: 0 4px 10px rgba(227, 22, 103, 0.3);
+    }
+    .tour-name-badge {
+        position: absolute; top: 12px; left: 12px; padding: 8px 12px;
+        background: rgba(17, 19, 24, 0.75); color: white; border-radius: 12px;
+        font-size: 13px; font-weight: bold; z-index: 1000; backdrop-filter: blur(6px);
+    }
+
+    .numbered-marker {
+        background: white; border: 2px solid #3F7DFF; border-radius: 50%;
+        color: #3F7DFF; font-weight: bold; text-align: center; 
+        line-height: 26px; font-size: 13px; width: 30px !important; height: 30px !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .numbered-marker.active {
+        border-color: #E31667; color: #E31667; background: #FFF2F7; z-index: 1000 !important;
+    }
+
+    .map-now-playing-overlay {
+        position: absolute; bottom: 12px; left: 12px; right: 12px;
+        background: linear-gradient(135deg, #0F5A6D 0%, #4B237F 100%);
+        border: none; border-radius: 20px;
+        padding: 14px; display: flex; gap: 12px; z-index: 1000;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        animation: slideUp 0.4s ease-out;
+    }
+    .accent-line { width: 4px; background: #E31667; border-radius: 2px; }
+    .np-info { flex: 1; }
+    .np-label { color: #FFC107; font-size: 10px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
+    .np-title { font-size: 16px; font-weight: bold; color: white; margin-bottom: 2px; }
+    .np-subtitle { font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
+    .np-stats { text-align: right; min-width: 50px; display: flex; flex-direction: column; justify-content: center; }
+    .np-progress-text { color: white; font-size: 18px; font-weight: bold; line-height: 1; }
+    .np-total-label { color: #8A93A6; font-size: 10px; margin-top: 2px; }
+</style>
+
+<div class="tour-map-page">
+    <div class="map-header">
+        <div class="back-circle shadow-sm" onclick="history.back()"><i class="bi bi-chevron-left text-dark"></i></div>
+        <h1 class="m-0 fs-3 fw-bold text-dark">@WebLocalizationHelper.Get("LiveRouteText", lang)</h1>
+    </div>
+
+    <p class="px-3 mb-2 text-secondary small" style="margin-top: -4px;">@WebLocalizationHelper.Get("TrackingStatus", lang)</p>
+
+    <div class="tour-map-view shadow-sm" id="liveMap">
+        <div class="tour-name-badge">@(ViewBag.TourName ?? "Tour Route")</div>
+
+        <button class="recenter-btn shadow" onclick="recenterMap()">
+            <i class="bi bi-record-circle-fill"></i>
+        </button>
+        
+        <div class="map-now-playing-overlay">
+            <div class="accent-line"></div>
+            <div class="np-info">
+                <div class="np-label">@WebLocalizationHelper.Get("NowPlayingText", lang).ToUpper()</div>
+                <div class="np-title text-truncate" id="np-title" style="max-width: 180px;">@(firstPoi?.Title ?? "...")</div>
+                <div class="np-subtitle text-truncate" id="np-subtitle" style="max-width: 180px;">@(firstPoi?.Subtitle ?? "...")</div>
+                
+                <div class="progress" style="height: 4px; background-color: rgba(255,255,255,0.2); border-radius: 2px;">
+                    <div class="progress-bar" style="width: @(totalCount > 0 ? 100/totalCount : 0)%; background-color: #E31667; transition: width 0.3s;"></div>
+                </div>
+            </div>
+            <button class="play-pause-btn" id="tour-play-btn" onclick="toggleTourPlayback()">
+                <i class="bi bi-play-fill"></i>
+            </button>
+            <div class="np-stats">
+                <div class="np-progress-text" id="np-progress-text">1/@totalCount</div>
+                <div class="np-total-label">@WebLocalizationHelper.Get("StopsText", lang)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="waypoint-list">
+        @{ int i = 1; }
+        @foreach(var poi in Model) {
+            <div class="waypoint-card shadow-sm @(i == 1 ? "active" : "")" onclick="focusPoi(@poi.Latitude, @poi.Longitude, this, '@Html.Raw(poi.Title?.Replace("'", "\\'"))', '@Html.Raw(poi.Subtitle?.Replace("'", "\\'"))', '@i/@totalCount')">
+                <div class="stop-number">@i</div>
+                <div class="waypoint-info">
+                    <div class="stop-label-row">
+                        <span class="stop-text">@WebLocalizationHelper.Get("StopText", lang) @i</span>
+                        @if(i == 1) { 
+                            <span class="now-playing-badge">@WebLocalizationHelper.Get("NowPlayingText", lang)</span> 
+                        }
+                    </div>
+                    <div class="waypoint-title">@poi.Title</div>
+                    <div class="waypoint-loc">@poi.Location</div>
+                    @if(poi.Latitude != 0) {
+                        <div class="small text-muted mt-1" style="font-size: 11px;">
+                            <i class="bi bi-geo"></i> @(i * 150) m
+                        </div>
+                    }
+                </div>
+                <button class="btn-open-poi shadow-sm" onclick="event.stopPropagation(); location.href='@Url.Action("Details", "Public", new { id = poi.Id, area = "" })'">
+                    @WebLocalizationHelper.Get("OpenText", lang).ToUpper()
+                </button>
+            </div>
+            i++;
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map;
+        var markers = [];
+        var isPlaying = false;
+        var currentIndex = 0;
+        
+        // Dữ liệu POI phục vụ việc đọc thuyết minh tự động
+        var tourData = [
+            @foreach(var p in Model) {
+                var text = p.SpeechTexts.FirstOrDefault(s => s.LanguageCode == lang)?.Text ?? p.SpeechText ?? p.Description;
+                @:{ id: @p.Id, title: "@Html.Raw(p.Title?.Replace("\"", "\\\""))", subtitle: "@Html.Raw(p.Subtitle?.Replace("\"", "\\\""))", lat: @(p.Latitude == 0 ? 10.7760 : p.Latitude), lng: @(p.Longitude == 0 ? 106.6853 : p.Longitude), text: "@Html.Raw(text?.Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " "))" },
+            }
+        ];
+
+        window.addEventListener('load', function() {
+            // Lấy tọa độ điểm đầu tiên hoặc mặc định là SGU nếu chưa có dữ liệu
+            var startLat = tourData.length > 0 ? tourData[0].lat : 10.7760;
+            var startLng = tourData.length > 0 ? tourData[0].lng : 106.6853;
+
+            map = L.map('liveMap', { zoomControl: false }).setView([startLat, startLng], 15);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+
+            // Marker vị trí người dùng (User Location)
+            L.circleMarker([10.7760, 106.6853], { 
+                radius: 10, color: 'white', weight: 3, fillOpacity: 1, fillColor: '#0D6EFD' 
+            }).addTo(map).bindPopup("<b>Bạn đang ở đây (SGU)</b>");
+
+            var points = [];
+            @{ int mIdx = 1; }
+            @foreach(var poi in Model) {
+                var lat = poi.Latitude == 0 ? 10.7760 : poi.Latitude;
+                var lng = poi.Longitude == 0 ? 106.6853 : poi.Longitude;
+                <text>
+                var icon = L.divIcon({ className: 'numbered-marker' + (@(mIdx == 1 ? "true" : "false") ? ' active' : ''), html: '@mIdx', iconSize: [30, 30] });
+                var m = L.marker([@lat, @lng], { icon: icon }).addTo(map);
+                markers.push(m);
+                points.push([@lat, @lng]);
+                </text>
+                mIdx++;
+            }
+
+            if(points.length > 1) {
+                var polyline = L.polyline(points, {color: '#E31667', weight: 4, dashArray: '8, 12', opacity: 0.6}).addTo(map);
+                map.fitBounds(polyline.getBounds().pad(0.2));
+            }
+
+            // Tự động tìm vị trí bắt đầu từ URL (poiId)
+            const urlParams = new URLSearchParams(window.location.search);
+            const startPoiId = parseInt(urlParams.get('poiId'));
+            if (startPoiId) {
+                currentIndex = tourData.findIndex(p => p.id === startPoiId);
+                if (currentIndex === -1) currentIndex = 0;
+            }
+
+            // Tự động phát thuyết minh sau khi map load ổn định
+            setTimeout(() => {
+                if (!isPlaying && tourData.length > 0) toggleTourPlayback();
+            }, 1000);
+        });
+
+        function recenterMap() {
+            // Bay về vị trí SGU (mô phỏng vị trí người dùng)
+            map.flyTo([10.7760, 106.6853], 15);
+        }
+
+         function toggleTourPlayback() {
+            const btn = document.getElementById('tour-play-btn');
+            if (isPlaying) {
+                window.speechSynthesis.cancel();
+                isPlaying = false;
+                btn.innerHTML = '<i class="bi bi-play-fill"></i>';
+            } else {
+                isPlaying = true;
+                btn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+                playCurrentPoi();
+            }
+        }
+
+        function playCurrentPoi() {
+            if (!isPlaying || currentIndex >= tourData.length) {
+                if (currentIndex >= tourData.length) {
+                    isPlaying = false;
+                    document.getElementById('tour-play-btn').innerHTML = '<i class="bi bi-play-fill"></i>';
+                }
+                return;
+            }
+
+            const poi = tourData[currentIndex];
+            const progressText = (currentIndex + 1) + '/' + tourData.length;
+            
+            // Cập nhật giao diện Map & List
+            focusPoi(poi.lat, poi.lng, document.querySelectorAll('.waypoint-card')[currentIndex], poi.title, poi.subtitle, progressText);
+
+            // Phát TTS
+            window.speechSynthesis.cancel(); // Dừng các âm thanh cũ
+            const msg = new SpeechSynthesisUtterance(poi.text);
+            const langMap = { 'vi': 'vi-VN', 'en': 'en-US', 'fr': 'fr-FR', 'ja': 'ja-JP' };
+            msg.lang = langMap['@lang'] || 'en-US';
+
+            msg.onend = function() {
+                if (isPlaying) {
+                    currentIndex++;
+                    if (currentIndex < tourData.length) {
+                        setTimeout(playCurrentPoi, 1000); // Nghỉ 1 giây rồi sang điểm tiếp theo
+                    } else {
+                        isPlaying = false;
+                        document.getElementById('tour-play-btn').innerHTML = '<i class="bi bi-play-fill"></i>';
+                        currentIndex = 0; // Reset về đầu tour cho lần nhấn sau
+                    }
+                }
+            };
+            window.speechSynthesis.speak(msg);
+        }
+
+        function focusPoi(lat, lng, element, title, subtitle, progressText) {
+            map.flyTo([lat, lng], 17);
+            
+            // Cập nhật trạng thái Active và Overlay giống MAUI
+            document.querySelectorAll('.waypoint-card').forEach(c => c.classList.remove('active'));
+            element.classList.add('active');
+            
+            // Cập nhật Marker trên bản đồ
+            markers.forEach((m, index) => {
+                var isActive = (index + 1) == parseInt(progressText.split('/')[0]);
+                var icon = L.divIcon({ 
+                    className: 'numbered-marker' + (isActive ? ' active' : ''), 
+                    html: (index + 1), 
+                    iconSize: [30, 30] 
+                });
+                m.setIcon(icon);
+            });
+
+            document.getElementById('np-title').innerText = title;
+            document.getElementById('np-subtitle').innerText = subtitle;
+            document.getElementById('np-progress-text').innerText = progressText;
+            
+            // Giả lập cập nhật ProgressBar dựa trên thứ tự điểm dừng
+            const [current, total] = progressText.split('/').map(Number);
+            const pct = (current / total) * 100;
+            document.querySelector('.progress-bar').style.width = pct + '%';
+        }
+    </script>
+}

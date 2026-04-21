@@ -65,8 +65,14 @@ public class LoginViewModel : INotifyPropertyChanged
         _authApiClient = authApiClient;
         BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
         TogglePasswordVisibilityCommand = new Command(() => IsPasswordHidden = !IsPasswordHidden);
-        SignInCommand = new Command(async () =>
+        SignInCommand = new Command<string>(async (param) =>
         {
+            if (param == "GUEST_OWNER")
+            {
+                Email = "guest@example.com";
+                Password = "123456";
+            }
+
             if (!await ValidateInputAsync())
                 return;
 

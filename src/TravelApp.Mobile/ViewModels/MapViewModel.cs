@@ -7,6 +7,7 @@ using TravelApp.Models;
 using TravelApp.Models.Contracts;
 using TravelApp.Models.Runtime;
 using TravelApp.Services;
+using TravelApp.Mobile.Services;
 using TravelApp.Services.Abstractions;
 
 namespace TravelApp.ViewModels;
@@ -61,6 +62,7 @@ public sealed class MapViewModel : INotifyPropertyChanged, IDisposable
     public ICommand BackCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand OpenPoiDetailCommand { get; }
+    public ICommand OpenHeatmapCommand { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -77,6 +79,7 @@ public sealed class MapViewModel : INotifyPropertyChanged, IDisposable
 
         BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
         RefreshCommand = new Command(async () => await LoadDataAsync());
+        OpenHeatmapCommand = new Command(async () => await Shell.Current.GoToAsync("PopularPlacesPage"));
         OpenPoiDetailCommand = new Command<MapPinItem>(async pin =>
         {
             if (pin is null) return;
@@ -118,7 +121,7 @@ public sealed class MapViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var language = UserProfileService.PreferredLanguage;
+            var language = LocalizationManager.Instance.CurrentLanguage;
             var cachedPois = _userLocation is null
                 ? await _localDatabaseService.GetPoisAsync(language, cancellationToken: cancellationToken)
                 : await _localDatabaseService.GetPoisAsync(language, _userLocation.Latitude, _userLocation.Longitude, 1500, cancellationToken);
@@ -193,15 +196,15 @@ public sealed class MapViewModel : INotifyPropertyChanged, IDisposable
         return new PoiModel
         {
             Id = poi.Id,
-            Title = poi.Title,
-            Subtitle = poi.Subtitle,
+            Title = LocalizationManager.GetLocalizedValue(poi.Localizations, nameof(poi.Title)) ?? poi.Title,
+            Subtitle = LocalizationManager.GetLocalizedValue(poi.Localizations, nameof(poi.Subtitle)) ?? poi.Subtitle,
             ImageUrl = poi.ImageUrl,
             Location = poi.Location,
             Latitude = lat,
             Longitude = lng,
             Distance = CalculateDistance(poi),
             Duration = poi.Duration ?? "30 min",
-            Description = poi.Description,
+            Description = LocalizationManager.GetLocalizedValue(poi.Localizations, nameof(poi.Description)) ?? poi.Description,
             Provider = poi.Provider,
             Credit = poi.Credit
         };

@@ -4,6 +4,7 @@ using Microsoft.Maui.Maps;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TravelApp.Models;
+using TravelApp.Mobile.Services;
 using TravelApp.Models.Runtime;
 using TravelApp.Services.Abstractions;
 using TravelApp.ViewModels;
@@ -344,7 +345,7 @@ public partial class ExplorePage : ContentPage
             return;
         }
 
-        AudioStatusTextLabel.Text = "Đang phát audio";
+        AudioStatusTextLabel.Text = LocalizationManager.Instance.NowPlayingAudioText;
         AudioPoiTitleLabel.Text = _audioPlayerService.CurrentPoiTitle ?? "Địa điểm hiện tại";
     }
 }

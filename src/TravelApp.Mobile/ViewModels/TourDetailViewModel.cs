@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using TravelApp.Models;
+using TravelApp.Mobile.Services;
 using TravelApp.Models.Contracts;
 using TravelApp.Services;
 using TravelApp.Services.Abstractions;
@@ -17,6 +18,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private PoiModel? _tour;
     private PoiDto? _currentPoiDto;
     private string _speechTextInput = string.Empty;
+    private string _currentPlayingText = string.Empty;
     private string _selectedSpeechLanguageCode = string.Empty;
     private bool _isSavingSpeechText;
     private bool _suppressSpeechTextAutoSave;
@@ -88,17 +90,36 @@ public class TourDetailViewModel : INotifyPropertyChanged
                 return;
             }
 
+            // Cập nhật văn bản hiển thị ngay lập tức nếu đang phát TTS
+            // (Nếu văn bản đang phát khớp với văn bản cũ trong editor, ta cập nhật nó theo nội dung mới)
+            if (IsPlaying && string.Equals(CurrentPlayingText, _speechTextInput, StringComparison.OrdinalIgnoreCase))
+            {
+                CurrentPlayingText = value;
+            }
+
             _speechTextInput = value;
             if (!_suppressSpeechTextAutoSave)
             {
                 _hasPendingSpeechTextChanges = true;
             }
+
             OnPropertyChanged();
 
             if (!_suppressSpeechTextAutoSave)
             {
                 ScheduleSpeechTextAutoSave();
             }
+        }
+    }
+
+    public string CurrentPlayingText
+    {
+        get => _currentPlayingText;
+        private set
+        {
+            if (_currentPlayingText == value) return;
+            _currentPlayingText = value;
+            OnPropertyChanged();
         }
     }
 
@@ -149,7 +170,9 @@ public class TourDetailViewModel : INotifyPropertyChanged
             _selectedSpeechLanguageCode = normalized;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedSpeechLanguageDisplayText));
+                
             // When selected language changes, update displayed title/description and audio selection
+            ApplySpeechTextForSelectedLanguage();
             ApplyLocalizationForSelectedLanguage();
         }
     }
@@ -219,7 +242,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
         _localDatabaseService = localDatabaseService;
         _audioLibraryService = audioLibraryService;
         _bookmarkHistoryService = bookmarkHistoryService;
-        _audioService = audioService;
+        
         _tourRouteCacheService = tourRouteCacheService;
         _audioService = audioService;
         _audioService.PlaybackEnded += (_, _) =>
@@ -251,7 +274,10 @@ public class TourDetailViewModel : INotifyPropertyChanged
         SelectLanguageSimpleCommand = new Command<string>(async lang =>
         {
             if (string.IsNullOrWhiteSpace(lang)) return;
-            SelectedSpeechLanguageCode = NormalizeLanguageCode(lang);
+            var normalized = NormalizeLanguageCode(lang);
+            SelectedSpeechLanguageCode = normalized;
+            // Cập nhật ngôn ngữ toàn cầu khi người dùng chủ động nhấn vào biểu tượng ngôn ngữ/cờ
+            LocalizationManager.Instance.SetLanguage(normalized);
             // stop any playing audio
             await _audioService.StopAsync();
         });
@@ -261,6 +287,11 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
         UpdateSpeechTextPermission();
         UserProfileService.ProfileChanged += OnUserProfileChanged;
+
+        // Lắng nghe thay đổi ngôn ngữ toàn cục để cập nhật TTS ngay lập tức
+        LocalizationManager.Instance.PropertyChanged += (s, e) => {
+            if (string.IsNullOrEmpty(e.PropertyName)) RefreshLanguageFromGlobal();
+        };
     }
 
     private async Task DownloadTourAsync()
@@ -325,12 +356,39 @@ public class TourDetailViewModel : INotifyPropertyChanged
         _isProcessingAudio = true;
         try
         {
-            // Luôn dừng audio cũ trước khi phát bất cứ thứ gì mới
             await _audioService.StopAsync();
 
+            // Chuẩn bị dữ liệu phát: Ưu tiên nội dung đang hiển thị trên màn hình
+            var mobileDto = MapToPoiMobileDto(_currentPoiDto);
+            
+            // CẬP NHẬT: Gán chính xác văn bản và ngôn ngữ đang chọn để TTS đọc đúng giọng
+            mobileDto.SpeechText = SpeechTextInput; 
+            mobileDto.SpeechTextLanguageCode = SelectedSpeechLanguageCode;
+
+            // Xác định văn bản hiển thị: Ưu tiên transcript của file audio nếu có, ngược lại dùng SpeechText
+            var audioAsset = mobileDto.AudioAssets?.FirstOrDefault(a => string.Equals(a.LanguageCode, SelectedSpeechLanguageCode, StringComparison.OrdinalIgnoreCase));
+            if (audioAsset != null && !string.IsNullOrWhiteSpace(audioAsset.Transcript))
+            {
+                CurrentPlayingText = audioAsset.Transcript;
+            }
+            else
+            {
+                CurrentPlayingText = SpeechTextInput;
+            }
+
             IsPlaying = true;
-            // Gọi phát audio
-            await _audioService.PlayPoiAudioAsync(MapToPoiMobileDto(_currentPoiDto));
+            
+            // AudioService sẽ tự động kiểm tra: 
+            // 1. Nếu có AudioAsset (file mp3) khớp với SelectedSpeechLanguageCode -> Phát file.
+            // 2. Nếu không có file -> Sử dụng TTS để đọc mobileDto.SpeechText bằng giọng mobileDto.SpeechTextLanguageCode.
+            await _audioService.PlayPoiAudioAsync(mobileDto);
+
+            // Ghi nhận lượt nghe Audio về server (không đợi kết quả để tránh làm chậm UI)
+            _ = Task.Run(async () => {
+                var config = MauiProgram.Services.GetRequiredService<AppConfig>();
+                var client = new HttpClient();
+                await client.PostAsync($"{config.ApiBaseUrl}api/pois/{mobileDto.Id}/audio-play", null);
+            });
         }
         catch (Exception ex)
         {
@@ -400,9 +458,11 @@ public class TourDetailViewModel : INotifyPropertyChanged
                 if (dto is not null)
                 {
                     _currentPoiDto = dto;
-                    Tour = MapPoi(dto);
-                    // Ensure QR image is generated immediately after data loads so mobile QR displays link to public web detail
-                    EnsureQrImage(dto);
+                    var model = MapPoi(dto);
+                    // Đảm bảo QR được gán vào model trước khi gán model vào property Tour để UI nhận đủ data một lần
+                    PopulateQrImageUrl(model, dto.Id);
+                    Tour = model;
+                    
                     SetLoadedSpeechTexts(dto.SpeechTexts, dto.SpeechTextLanguageCode, dto.SpeechText ?? dto.Description, dto.PrimaryLanguage);
                     _hasPendingSpeechTextChanges = false;
                     IsBookmarked = await _bookmarkHistoryService.IsBookmarkedAsync(id, CancellationToken.None);
@@ -465,8 +525,9 @@ public class TourDetailViewModel : INotifyPropertyChanged
                     SpeechTexts = cachedPoi.SpeechTexts.Select(x => new PoiSpeechTextDto(x.LanguageCode, x.Text)).ToList()
                 };
 
+                PopulateQrImageUrl(cachedModel, cachedPoi.Id);
                 Tour = cachedModel;
-                EnsureQrImage(_currentPoiDto);
+                
                 SetLoadedSpeechTexts(_currentPoiDto.SpeechTexts, _currentPoiDto.SpeechTextLanguageCode, _currentPoiDto.SpeechText ?? _currentPoiDto.Description, _currentPoiDto.PrimaryLanguage);
                 _hasPendingSpeechTextChanges = false;
                 IsBookmarked = await _bookmarkHistoryService.IsBookmarkedAsync(id, CancellationToken.None);
@@ -592,6 +653,12 @@ public class TourDetailViewModel : INotifyPropertyChanged
         }
     }
 
+    private void RefreshLanguageFromGlobal()
+    {
+        var globalLang = LocalizationManager.Instance.CurrentLanguage;
+        if (SelectedSpeechLanguageCode != globalLang) SelectedSpeechLanguageCode = globalLang;
+    }
+
     private void ScheduleSpeechTextAutoSave()
     {
         CancelSpeechTextAutoSave();
@@ -640,7 +707,11 @@ public class TourDetailViewModel : INotifyPropertyChanged
             await RefreshAsync();
         }
 
-        SelectedSpeechLanguageCode = NormalizeLanguageCode(option.LanguageCode);
+        var newLang = NormalizeLanguageCode(option.LanguageCode);
+        SelectedSpeechLanguageCode = newLang;
+        // Đồng bộ toàn hệ thống khi người dùng chọn từ menu danh sách ngôn ngữ
+        LocalizationManager.Instance.SetLanguage(newLang);
+
         UpdateSelectedLanguageFlags();
         ApplySpeechTextForSelectedLanguage();
         ApplyLocalizationForSelectedLanguage();
@@ -648,20 +719,54 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     private void ApplyLocalizationForSelectedLanguage()
     {
-        if (_currentPoiDto is null || Tour is null) return;
-
+        if (_currentPoiDto is null || Tour is null)
+            return;
+            
         var lang = SelectedSpeechLanguageCode;
+        var currentTour = Tour;
 
-        // Update title/description from Localizations
+        // 1. Reset về giá trị mặc định (Thường là ngôn ngữ gốc/Tiếng Việt)
+        currentTour.Title = _currentPoiDto.Title;
+        currentTour.Subtitle = _currentPoiDto.Subtitle ?? string.Empty;
+        currentTour.Description = _currentPoiDto.Description ?? string.Empty;
+        
+        // 2. Kiểm tra nếu POI này hoàn toàn không có bản dịch cho ngôn ngữ đang chọn
+        var hasLocalization = _currentPoiDto.Localizations?.Any(l => string.Equals(l.LanguageCode, lang, StringComparison.OrdinalIgnoreCase)) ?? false;
+        var hasSpeechText = _speechTextsByLanguage.ContainsKey(NormalizeLanguageCode(lang));
+
+        // Nếu là POI mới (chỉ có tiếng Việt) mà App đang ở tiếng khác, 
+        // ta cần ép SelectedSpeechLanguageCode về tiếng Việt để TTS đọc đúng giọng
+        if (!hasLocalization && !hasSpeechText)
+        {
+            var primary = NormalizeLanguageCode(_currentPoiDto.PrimaryLanguage);
+            if (!string.IsNullOrEmpty(primary) && primary != lang)
+            {
+                // Cập nhật ngầm code để TTS sử dụng, nhưng không gọi lại Apply để tránh loop
+                _selectedSpeechLanguageCode = primary;
+                OnPropertyChanged(nameof(SelectedSpeechLanguageCode));
+                OnPropertyChanged(nameof(SelectedSpeechLanguageDisplayText));
+                lang = primary;
+            }
+        }
+
+        // 3. Tìm bản dịch trong danh sách Localizations
         var loc = _currentPoiDto.Localizations?.FirstOrDefault(l => string.Equals(l.LanguageCode, lang, StringComparison.OrdinalIgnoreCase));
         if (loc is not null)
         {
-            Tour.Title = string.IsNullOrWhiteSpace(loc.Title) ? Tour.Title : loc.Title;
-            Tour.Subtitle = string.IsNullOrWhiteSpace(loc.Subtitle) ? Tour.Subtitle : loc.Subtitle ?? string.Empty;
-            Tour.Description = string.IsNullOrWhiteSpace(loc.Description) ? Tour.Description : loc.Description ?? string.Empty;
-            OnPropertyChanged(nameof(Tour));
-            OnPropertyChanged(nameof(Description));
+            if (!string.IsNullOrWhiteSpace(loc.Title)) currentTour.Title = loc.Title;
+            if (!string.IsNullOrWhiteSpace(loc.Subtitle)) currentTour.Subtitle = loc.Subtitle;
+            if (!string.IsNullOrWhiteSpace(loc.Description)) currentTour.Description = loc.Description;
         }
+        
+        // 4. Cập nhật mã QR và ép UI Refresh bằng cách Notify lại thuộc tính Tour
+        PopulateQrImageUrl(currentTour, _currentPoiDto.Id);
+        
+        // Notify cho Tour cuối cùng để kích hoạt lại toàn bộ binding liên quan trong XAML
+        // Thông báo UI: Phải Notify Tour cuối cùng để kích hoạt lại toàn bộ binding trong XAML
+        // nhưng cần notify Description trước để các nhãn đơn lẻ cập nhật giá trị mới.
+        OnPropertyChanged(nameof(Description));
+        OnPropertyChanged(nameof(Tour));
+        OnPropertyChanged(nameof(SelectedSpeechLanguageDisplayText));
     }
 
     private void SetLoadedSpeechTexts(IReadOnlyList<PoiSpeechTextDto> speechTexts, string? selectedLanguageHint, string? fallbackText, string? primaryLanguage)
@@ -679,16 +784,23 @@ public class TourDetailViewModel : INotifyPropertyChanged
             _speechTextsByLanguage[languageCode] = speechText.Text.Trim();
         }
 
-        if (_speechTextsByLanguage.Count == 0 && !string.IsNullOrWhiteSpace(fallbackText))
+        // Xác định ngôn ngữ hiển thị ban đầu dựa trên thứ tự ưu tiên để không "hijack" ngôn ngữ của App:
+        // 1. Ngôn ngữ hiện tại của App (Nếu POI có speech text tương ứng thì dùng luôn)
+        // 2. Ngôn ngữ gợi ý từ Admin (selectedLanguageHint/primaryLanguage)
+        // 3. Ngôn ngữ đầu tiên có sẵn trong danh sách SpeechTexts
+        var currentAppLang = LocalizationManager.Instance.CurrentLanguage;
+        var poiHintLang = NormalizeLanguageCode(selectedLanguageHint ?? primaryLanguage);
+
+        string targetLang = currentAppLang;
+        if (!_speechTextsByLanguage.ContainsKey(targetLang))
         {
-            var defaultLanguage = NormalizeLanguageCode(selectedLanguageHint ?? primaryLanguage);
-            _speechTextsByLanguage[defaultLanguage] = fallbackText.Trim();
+            if (!string.IsNullOrWhiteSpace(poiHintLang) && _speechTextsByLanguage.ContainsKey(poiHintLang))
+                targetLang = poiHintLang;
+            else
+                targetLang = NormalizeLanguageCode(_speechTextsByLanguage.Keys.FirstOrDefault()) ?? currentAppLang;
         }
 
-        var persistedLanguage = NormalizeLanguageCode(selectedLanguageHint ?? primaryLanguage);
-        SelectedSpeechLanguageCode = !string.IsNullOrWhiteSpace(persistedLanguage) && _speechTextsByLanguage.ContainsKey(persistedLanguage)
-            ? persistedLanguage
-            : NormalizeLanguageCode(_speechTextsByLanguage.Keys.FirstOrDefault());
+        SelectedSpeechLanguageCode = targetLang;
 
         UpdateSelectedLanguageFlags();
         ApplySpeechTextForSelectedLanguage();
@@ -697,11 +809,27 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     private void ApplySpeechTextForSelectedLanguage()
     {
-        var text = GetSpeechTextForLanguage(SelectedSpeechLanguageCode);
+        var targetLang = SelectedSpeechLanguageCode;
+        var text = GetSpeechTextForLanguage(targetLang);
+
+        // Fallback cho SpeechText: Nếu ngôn ngữ chọn không có text, lấy text của ngôn ngữ gốc
+        if (string.IsNullOrWhiteSpace(text) && _currentPoiDto != null)
+        {
+            var primary = NormalizeLanguageCode(_currentPoiDto.PrimaryLanguage);
+            if (!string.IsNullOrEmpty(primary) && primary != targetLang)
+            {
+                text = GetSpeechTextForLanguage(primary);
+            }
+        }
 
         _suppressSpeechTextAutoSave = true;
         SpeechTextInput = text;
         _suppressSpeechTextAutoSave = false;
+
+        if (IsPlaying)
+        {
+            CurrentPlayingText = text;
+        }
 
         if (Tour is not null)
         {
@@ -729,53 +857,26 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     private async Task RefreshSpeechLanguagesAsync()
     {
-        if (_speechLanguages.Count > 0)
-        {
-            UpdateSelectedLanguageFlags();
-            return;
-        }
-
         try
         {
-            var locales = await TextToSpeech.Default.GetLocalesAsync();
-            var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var items = new List<SpeechLanguageOption>();
-
-            foreach (var code in _speechTextsByLanguage.Keys.Concat([SelectedSpeechLanguageCode, UserProfileService.PreferredLanguage]))
+            // Chỉ hiển thị 4 ngôn ngữ chính mà App đang hỗ trợ theo yêu cầu
+            var supportedAppLanguages = new[] { "vi", "en", "fr", "ja" };
+            var items = supportedAppLanguages.Select(code => new SpeechLanguageOption
             {
-                AddLanguageCode(code, items, codes);
-            }
-
-            foreach (var locale in locales)
-            {
-                AddLanguageCode(locale.Language, items, codes);
-            }
+                LanguageCode = code,
+                DisplayName = GetLanguageDisplayText(code),
+                IsSelected = string.Equals(code, SelectedSpeechLanguageCode, StringComparison.OrdinalIgnoreCase)
+            }).ToList();
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 _speechLanguages.Clear();
-                foreach (var item in items.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
-                {
-                    item.IsSelected = string.Equals(item.LanguageCode, SelectedSpeechLanguageCode, StringComparison.OrdinalIgnoreCase);
-                    _speechLanguages.Add(item);
-                }
+                foreach (var item in items) _speechLanguages.Add(item);
             });
         }
-        catch
+        catch (Exception ex)
         {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                _speechLanguages.Clear();
-                foreach (var code in _speechTextsByLanguage.Keys.Concat([SelectedSpeechLanguageCode]).Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    _speechLanguages.Add(new SpeechLanguageOption
-                    {
-                        LanguageCode = NormalizeLanguageCode(code),
-                        DisplayName = GetLanguageDisplayText(code),
-                        IsSelected = string.Equals(NormalizeLanguageCode(code), SelectedSpeechLanguageCode, StringComparison.OrdinalIgnoreCase)
-                    });
-                }
-            });
+            System.Diagnostics.Debug.WriteLine($"Error refreshing speech languages: {ex.Message}");
         }
     }
 
@@ -798,7 +899,8 @@ public class TourDetailViewModel : INotifyPropertyChanged
     {
         return string.IsNullOrWhiteSpace(languageCode)
             ? string.Empty
-            : languageCode.Trim().ToLowerInvariant();
+            // Đảm bảo "ja-JP" hay "ja_JP" đều về "ja" để khớp với Admin
+            : languageCode.Trim().Split('-')[0].Split('_')[0].ToLowerInvariant();
     }
 
     private static string GetLanguageDisplayText(string? languageCode)
@@ -840,99 +942,41 @@ public class TourDetailViewModel : INotifyPropertyChanged
         };
     }
 
-    // Generate QR image url pointing to admin public detail using AppConfig if available
-    private void EnsureQrImage(PoiDto dto)
+    /// <summary>
+    /// Logic tạo URL QR Code hướng về trang web công khai của POI.
+    /// Tách riêng logic gán URL để có thể gọi linh hoạt.
+    /// </summary>
+    private void PopulateQrImageUrl(PoiModel model, int poiId)
     {
         try
         {
             var config = MauiProgram.Services.GetRequiredService<AppConfig>();
-            // Build public web details URL for mobile QR scans
-            var host = (config.AdminHost?.TrimEnd('/') ?? "http://192.168.100.164");
-            var portPart = config.AdminPort > 0 ? ":" + config.AdminPort.ToString() : string.Empty;
-            var qrLink = $"{host}{portPart}/public/poi/detail/{dto.Id}";
+            var apiBase = config.ApiBaseUrl?.TrimEnd('/') ?? "http://172.20.10.14:5001";
+
+            // Tự động lấy Host từ apiBase nếu không cấu hình AdminHost để đồng bộ IP
+            var apiUri = new Uri(apiBase);
+            var hostIp = apiUri.Host;
+
+            // Fix: Nếu host là 10.0.2.2 (Android Emulator), chuyển về IP thật để QR có thể quét được từ ngoài
+            if (hostIp == "10.0.2.2") hostIp = "172.20.10.14";
+
+            var host = config.AdminHost?.TrimEnd('/') ?? $"{apiUri.Scheme}://{hostIp}";
+
+            // Sử dụng Port 7020 của Admin Web
+            var port = config.PublicWebPort > 0 ? config.PublicWebPort : 7020;
+            var portPart = $":{port}";
+            
+            // Trỏ qua API tracking để đếm lượt quét trước khi redirect về Web UI
+            var redirectUrl = $"{host}{portPart}/Public/Details/{poiId}";
+            
+            // Nội dung mã QR cũng cần dùng IP thật thay vì IP giả lập 10.0.2.2
+            var qrApiBase = apiBase.Replace("10.0.2.2", hostIp);
+            var qrLink = $"{qrApiBase}/api/pois/{poiId}/qr-track?redirectUrl={System.Uri.EscapeDataString(redirectUrl)}";
             var qrUrl = config.QuickChartQrBase + System.Uri.EscapeDataString(qrLink);
-            if (Tour is not null)
-            {
-                Tour.QrImageUrl = qrUrl;
-                OnPropertyChanged(nameof(Tour));
-            }
+            
+            model.QrImageUrl = qrUrl;
         }
-        catch
-        {
-        }
-    }
-
-    private static bool IsStaleCentralParkPoi(PoiDto dto)
-    {
-        return ContainsCentralParkText(dto.Title)
-               || ContainsCentralParkText(dto.Description)
-               || ContainsCentralParkText(dto.Location);
-    }
-
-    private static bool ContainsCentralParkText(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        return value.Contains("Central Park", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("New York", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("USA", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static PoiDto MergePoiDto(PoiDto source, PoiModel localPoi)
-    {
-        return new PoiDto
-        {
-            Id = source.Id,
-            Title = localPoi.Title,
-            Subtitle = localPoi.Subtitle,
-            ImageUrl = localPoi.ImageUrl,
-            Location = localPoi.Location,
-            Latitude = source.Latitude,
-            Longitude = source.Longitude,
-            GeofenceRadiusMeters = source.GeofenceRadiusMeters,
-            Distance = source.Distance,
-            Duration = localPoi.Duration,
-            Description = localPoi.Description,
-            Provider = localPoi.Provider,
-            Credit = localPoi.Credit,
-            Category = source.Category,
-            PrimaryLanguage = source.PrimaryLanguage,
-            SpeechText = localPoi.SpeechText ?? source.SpeechText ?? localPoi.Description,
-            Localizations = source.Localizations,
-            AudioAssets = source.AudioAssets,
-            SpeechTextLanguageCode = localPoi.SpeechText is not null ? source.SpeechTextLanguageCode : source.SpeechTextLanguageCode,
-            SpeechTexts = source.SpeechTexts
-        };
-    }
-
-    private static PoiDto BuildPoiDtoFromLocalPoi(PoiModel localPoi)
-    {
-        return new PoiDto
-        {
-            Id = localPoi.Id,
-            Title = localPoi.Title,
-            Subtitle = localPoi.Subtitle,
-            ImageUrl = localPoi.ImageUrl,
-            Location = localPoi.Location,
-            Latitude = 0,
-            Longitude = 0,
-            GeofenceRadiusMeters = 100,
-            Distance = string.Empty,
-            Duration = localPoi.Duration,
-            Description = localPoi.Description,
-            Provider = localPoi.Provider,
-            Credit = localPoi.Credit,
-            Category = null,
-            PrimaryLanguage = UserProfileService.PreferredLanguage,
-            SpeechText = localPoi.SpeechText ?? localPoi.Description,
-            Localizations = [],
-            AudioAssets = [],
-            SpeechTextLanguageCode = "vi",
-            SpeechTexts = [new PoiSpeechTextDto("vi", localPoi.SpeechText ?? localPoi.Description ?? string.Empty)]
-        };
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"QR Generation Error: {ex.Message}"); }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -949,7 +993,9 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     private void UpdateSpeechTextPermission()
     {
-        CanEditSpeechText = UserProfileService.CanEditSpeechText;
+        // Kiểm tra nếu người dùng là Owner thì cho phép chỉnh sửa Speech Text
+        var isOwner = UserProfileService.Roles?.Contains("Owner", StringComparer.OrdinalIgnoreCase) ?? false;
+        CanEditSpeechText = isOwner || UserProfileService.CanEditSpeechText;
     }
 
     public void Dispose()

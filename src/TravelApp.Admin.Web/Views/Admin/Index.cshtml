@@ -11,7 +11,7 @@
             <p class="section-subtitle">Theo dõi nhanh dữ liệu tour, POI và hoạt động quản trị.</p>
         </div>
         <div class="section-actions">
-            <span class="soft-badge">API: @Model.ApiBaseUrl</span>
+            <span class="soft-badge">Live Connection: @Model.ApiBaseUrl</span>
         </div>
     </section>
 
@@ -36,7 +36,7 @@
             <div class="stat-icon stat-icon-blue">🎧</div>
             <div>
                 <div class="stat-value">@Model.PublishedTourCount</div>
-                <div class="stat-label">Published tour</div>
+                <div class="stat-label">Lượt nghe audio</div>
             </div>
         </article>
 
@@ -44,56 +44,36 @@
             <div class="stat-icon stat-icon-purple">QR</div>
             <div>
                 <div class="stat-value">@Model.QrCount</div>
-                <div class="stat-label">QR code</div>
+                <div class="stat-label">Lượt quét QR</div>
             </div>
         </article>
-    </section>
-
-    <section class="dashboard-panels">
-        <div class="panel-card panel-large">
-            <div class="section-header mb-3">
-                <div>
-                    <h2 class="section-title">Tour hiện có</h2>
-                    <p class="section-subtitle">Danh sách tour đồng bộ từ API.</p>
-                </div>
-            </div>
-            <div class="activity-list">
-                @foreach (var tour in Model.RecentTours)
-                {
-                    <div class="activity-item">
-                        <span class="pill">@(tour.IsPublished ? "Published" : "Draft")</span>
-                        <span>@tour.Name • @tour.PoiCount POI</span>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <div class="panel-card panel-large">
-            <div class="section-header mb-3">
-                <div>
-                    <h2 class="section-title">POI hiện có</h2>
-                    <p class="section-subtitle">Các POI đang đồng bộ giữa web và app.</p>
-                </div>
-            </div>
-            <div class="activity-list">
-                @foreach (var poi in Model.RecentPois)
-                {
-                    <div class="activity-item">
-                        <span class="pill">@(poi.IsUsedInTour ? "Used" : "Free")</span>
-                        <span>@poi.Title @(string.IsNullOrWhiteSpace(poi.Category) ? "" : $"• {poi.Category}")</span>
-                    </div>
-                }
-            </div>
-        </div>
     </section>
 
     <section class="panel-card">
         <div class="section-header mb-3">
             <div>
-                <h2 class="section-title">Tổng quan đồng bộ</h2>
-                <p class="section-subtitle">Dashboard hiện đang lấy dữ liệu thật từ API, không còn số giả.</p>
+                <h2 class="section-title">📍 Xếp hạng địa điểm phổ biến</h2>
+                <p class="section-subtitle">Dựa trên tổng lượt quét QR và nghe Audio.</p>
             </div>
         </div>
-        <div class="heatmap-placeholder">@Model.PoiCount POI • @Model.TourCount tour • @Model.UserCount user</div>
+        <div class="activity-list" id="ranking-list">
+            @{ int rank = 1; }
+            @foreach (var poi in Model.RecentPois)
+            {
+                var totalInteractions = poi.AudioPlays + poi.QrScans;
+                <div class="activity-item d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="fw-bold text-secondary" style="width: 30px;">#@(rank++)</div>
+                        <div>
+                            <strong class="d-block text-dark">@poi.Title - <span class="text-primary">@totalInteractions lượt</span></strong>
+                            <small class="text-muted">@(poi.Category ?? "Địa điểm")</small>
+                        </div>
+                    </div>
+                    <div class="text-muted small">
+                        <i class="bi bi-headphones"></i> @poi.AudioPlays &nbsp; <i class="bi bi-qr-code"></i> @poi.QrScans
+                    </div>
+                </div>
+            }
+        </div>
     </section>
 </div>

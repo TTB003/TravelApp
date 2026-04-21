@@ -19,31 +19,34 @@ public class AdminController : Controller
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        var pois = await _apiClient.GetPoisAsync("vi", cancellationToken);
-        var tours = await _apiClient.GetToursAsync(cancellationToken);
-        var users = await _apiClient.GetUsersAsync(cancellationToken);
+        // 1. Lấy thông tin thống kê tổng quát (Số user, Tổng lượt nghe, Tổng lượt quét)
+        // Giả sử API trả về object: { PoiCount, UserCount, PublishedTourCount, QrCount }
+        var stats = await _apiClient.GetDashboardStatsAsync(cancellationToken);
+        
+        // 2. Lấy danh sách Top POI (đã được API sắp xếp theo độ hot)
+        // Endpoint này trả về List<PoiStatResult> (Id, Title, Category, QrScans, AudioPlays)
+        var topPois = await _apiClient.GetPoiStatsAsync(cancellationToken);
+
         var vm = new AdminDashboardViewModel
         {
-            PoiCount = pois.Count,
-            QrCount = pois.Count,
-            TourCount = tours.Count,
-            PublishedTourCount = tours.Count(x => x.IsPublished),
-            DraftTourCount = tours.Count(x => !x.IsPublished),
-            UserCount = users.Count,
+            PoiCount = stats?.PoiCount ?? 0,
+            UserCount = stats?.UserCount ?? 0,
+            
+            // Ở Dashboard, PublishedTourCount giờ đây đóng vai trò là "Tổng lượt nghe Audio"
+            PublishedTourCount = stats?.PublishedTourCount ?? 0, 
+            
+            // QrCount đóng vai trò là "Tổng lượt quét QR"
+            QrCount = stats?.QrCount ?? 0,
             ApiBaseUrl = _configuration["TravelAppApi:BaseUrl"] ?? string.Empty,
-            RecentTours = tours.OrderByDescending(x => x.Id).Take(5).Select(x => new DashboardTourSummary
-            {
-                Id = x.Id,
-                Name = x.Name,
-                IsPublished = x.IsPublished,
-                PoiCount = x.Pois.Count
-            }).ToList(),
-            RecentPois = pois.OrderByDescending(x => x.Id).Take(5).Select(x => new DashboardPoiSummary
+
+            // Map dữ liệu thống kê chi tiết vào RecentPois để hiển thị bảng xếp hạng
+            RecentPois = topPois.Select(x => new DashboardPoiSummary
             {
                 Id = x.Id,
                 Title = x.Title,
                 Category = x.Category,
-                IsUsedInTour = x.IsUsedInTour
+                AudioPlays = x.AudioPlays,
+                QrScans = x.QrScans
             }).ToList()
         };
 

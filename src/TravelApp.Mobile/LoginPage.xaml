@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelApp.Mobile.Services"
              x:Class="TravelApp.LoginPage"
              BackgroundColor="{AppThemeBinding Light=#F4F4F5, Dark=#111318}"
              Shell.NavBarIsVisible="False">
@@ -25,15 +26,15 @@
             </Border>
 
             <VerticalStackLayout Spacing="8" Margin="0,20,0,0">
-                <Label Text="Sign In"
+                <Label Text="{Binding LoginText, Source={x:Static services:LocalizationManager.Instance}}"
                        Style="{StaticResource AuthTitleLabelStyle}" />
-                <Label Text="Enjoy the free audio guided tours with ease and redeem the credits for paid tours."
+                <Label Text="{Binding AuthSubtitleText, Source={x:Static services:LocalizationManager.Instance}}"
                        Style="{StaticResource AuthSubtitleLabelStyle}" />
             </VerticalStackLayout>
 
             <Border Style="{StaticResource AuthInputBorderStyle}"
                     Margin="0,10,0,0">
-                <Entry Placeholder="Enter your e-mail address *"
+                <Entry Placeholder="{Binding EmailPlaceholderText, Source={x:Static services:LocalizationManager.Instance}}"
                        Text="{Binding Email}"
                        AutomationProperties.Name="Email"
                        Style="{StaticResource AuthEntryStyle}" />
@@ -41,7 +42,7 @@
 
             <Border Style="{StaticResource AuthInputBorderStyle}">
                 <Grid ColumnDefinitions="*,Auto">
-                    <Entry Placeholder="Password *"
+                    <Entry Placeholder="{Binding PasswordPlaceholderText, Source={x:Static services:LocalizationManager.Instance}}"
                            Text="{Binding Password}"
                            IsPassword="{Binding IsPasswordHidden}"
                            AutomationProperties.Name="Password"
@@ -58,31 +59,39 @@
                             <DataTrigger TargetType="Button"
                                          Binding="{Binding IsPasswordHidden}"
                                          Value="True">
-                                <Setter Property="Text" Value="Show" />
+                                <Setter Property="Text" Value="{Binding ShowText, Source={x:Static services:LocalizationManager.Instance}}" />
                             </DataTrigger>
                             <DataTrigger TargetType="Button"
                                          Binding="{Binding IsPasswordHidden}"
                                          Value="False">
-                                <Setter Property="Text" Value="Hide" />
+                                <Setter Property="Text" Value="{Binding HideText, Source={x:Static services:LocalizationManager.Instance}}" />
                             </DataTrigger>
                         </Button.Triggers>
                     </Button>
                 </Grid>
             </Border>
 
-            <Button Text="Sign In"
+            <Button Text="{Binding LoginText, Source={x:Static services:LocalizationManager.Instance}}"
                     Command="{Binding SignInCommand}"
                     IsEnabled="{Binding IsSignInEnabled}"
                     AutomationProperties.Name="Sign In"
                     Style="{StaticResource PrimaryPillButtonStyle}"
                     Margin="0,6,0,0" />
 
-            <Label Text="Forgot password?"
+            <Button Text="{Binding QuickLoginOwnerText, Source={x:Static services:LocalizationManager.Instance}}"
+                    Command="{Binding SignInCommand}"
+                    CommandParameter="GUEST_OWNER"
+                    BackgroundColor="#FFC107"
+                    TextColor="Black"
+                    CornerRadius="25"
+                    HeightRequest="50" />
+
+            <Label Text="{Binding ForgotPasswordText, Source={x:Static services:LocalizationManager.Instance}}"
                    HorizontalOptions="End"
                    TextColor="{AppThemeBinding Light=#B73A6D, Dark=#FF84B2}"
                    FontSize="16" />
 
-            <Label Text="Demo credentials: demo@example.com / Demo@123456"
+            <Label Text="{Binding DemoCredentialsText, Source={x:Static services:LocalizationManager.Instance}}"
                    HorizontalOptions="Center"
                    TextColor="{AppThemeBinding Light=#8A8A93, Dark=#A8B0C4}"
                    FontSize="14"

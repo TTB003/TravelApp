@@ -6,10 +6,11 @@ using TravelApp.Models;
 using TravelApp.Models.Contracts;
 using TravelApp.Services;
 using TravelApp.Services.Abstractions;
+using TravelApp.Mobile.Services;
 
 namespace TravelApp.ViewModels;
 
-public class ExploreViewModel : INotifyPropertyChanged
+public class ExploreViewModel : INotifyPropertyChanged, IDisposable
 {
     private bool _isMenuOpen;
     private bool _isLoggedIn;
@@ -104,6 +105,9 @@ public class ExploreViewModel : INotifyPropertyChanged
         {
             IsLoggedIn = AuthStateService.IsLoggedIn;
         };
+
+        // Lắng nghe sự kiện thay đổi ngôn ngữ để cập nhật danh sách POI/Tour ngay lập tức
+        LocalizationManager.Instance.PropertyChanged += OnLocalizationChanged;
 
         ToggleMenuCommand = new Command(() => IsMenuOpen = !IsMenuOpen);
         CloseMenuCommand = new Command(() => IsMenuOpen = false);
@@ -283,6 +287,21 @@ public class ExploreViewModel : INotifyPropertyChanged
             Credit = string.IsNullOrWhiteSpace(tourName) ? string.Empty : tourName,
             SpeechText = dto.SpeechText
         };
+    }
+
+    private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // LocalizationManager sử dụng string.Empty để báo hiệu toàn bộ thuộc tính (bao gồm ngôn ngữ) thay đổi
+        if (string.IsNullOrEmpty(e.PropertyName))
+        {
+            // Gọi Refresh để nạp lại dữ liệu từ API/Cache theo ngôn ngữ mới
+            _ = RefreshAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        LocalizationManager.Instance.PropertyChanged -= OnLocalizationChanged;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

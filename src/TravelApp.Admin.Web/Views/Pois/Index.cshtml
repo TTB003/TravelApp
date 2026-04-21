@@ -25,6 +25,7 @@
             <div class="poi-search">
                 <input type="search" class="form-control" placeholder="Tìm POI..." data-poi-search />
             </div>
+            <a class="btn btn-outline-primary" asp-controller="Tours" asp-action="Heatmap">🔥 Xem Heatmap</a>
             <a class="btn btn-primary" asp-action="Create">+ Tạo POI mới</a>
         </div>
     </div>
@@ -114,16 +115,16 @@
                                         <a class="btn btn-outline-light btn-sm" asp-controller="Tours" asp-action="AttachPoi" asp-route-poiId="@poi.Id">Dùng cho Tour</a>
                                         <a class="btn btn-outline-light btn-sm" asp-controller="Tours" asp-action="AttachPoi" asp-route-poiId="@poi.Id">Gắn vào Tour hiện có</a>
                                         <a class="btn btn-outline-primary btn-sm" asp-action="Edit" asp-route-id="@poi.Id">Edit</a>
-                                    @if (poi.IsUsedInTour)
-                                    {
-                                        <button type="button" class="btn btn-outline-danger btn-sm" disabled>Đang dùng trong Tour</button>
-                                    }
-                                    else
-                                    {
-                                        <form asp-action="Delete" asp-route-id="@poi.Id" method="post" class="d-inline">
-                                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Xóa POI này?');">Delete</button>
-                                        </form>
-                                    }
+                                        @if (poi.IsUsedInTour)
+                                        {
+                                            <button type="button" class="btn btn-outline-danger btn-sm" disabled>Đang dùng trong Tour</button>
+                                        }
+                                        else
+                                        {
+                                            <form asp-action="Delete" asp-route-id="@poi.Id" method="post" class="d-inline">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Xóa POI này?');">Delete</button>
+                                            </form>
+                                        }
                                     </div>
                                 </td>
                             </tr>

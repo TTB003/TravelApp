@@ -26,6 +26,25 @@ public class ToursController : Controller
     }
 
     [Authorize(Roles = "Owner,Admin,SuperAdmin")]
+    public async Task<IActionResult> Heatmap(CancellationToken cancellationToken)
+    {
+        // 1. Lấy danh sách POIs để có tọa độ
+        var pois = await _apiClient.GetPoisAsync("vi", cancellationToken);
+        
+        // 2. Lấy số liệu thống kê (Xếp hạng địa điểm phổ biến) từ Dashboard API
+        var stats = await _apiClient.GetPoiStatsAsync(cancellationToken);
+
+        // 3. Gộp dữ liệu: Gán VisitCount cho từng POI dựa trên số lượt Audio + QR
+        var heatmapData = pois.Select(p => {
+            var stat = stats.FirstOrDefault(s => s.Id == p.Id);
+            var visitCount = (stat?.AudioPlays ?? 0) + (stat?.QrScans ?? 0);
+            return new { p.Id, p.Title, p.Latitude, p.Longitude, VisitCount = (double)visitCount };
+        }).ToList();
+
+        return View(heatmapData);
+    }
+
+    [Authorize(Roles = "Owner,Admin,SuperAdmin")]
     public async Task<IActionResult> Create(int? anchorPoiId, CancellationToken cancellationToken)
     {
         var model = await BuildEditorModelAsync((TourAdminDto?)null, anchorPoiId, cancellationToken);

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using TravelApp.Application.Dtos.Pois;
 using TravelApp.Application.Dtos.Users;
 using TravelApp.Application.Dtos.Tours;
+using TravelApp.Admin.Web.Models;
 
 namespace TravelApp.Admin.Web.Services;
 
@@ -353,5 +354,30 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
             return false;
         }
     }
+    
+    public async Task<DashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Gọi endpoint tổng hợp: PoiCount, UserCount, PublishedTourCount (Audio), QrCount
+            return await _httpClient.GetFromJsonAsync<DashboardStatsDto>("api/admin/dashboard-stats", cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
 
+    public async Task<List<PoiStatDto>> GetPoiStatsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Gọi endpoint lấy danh sách Top POI kèm lượt Audio/QR
+            return await _httpClient.GetFromJsonAsync<List<PoiStatDto>>("api/admin/poi-stats", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
+    }
 }

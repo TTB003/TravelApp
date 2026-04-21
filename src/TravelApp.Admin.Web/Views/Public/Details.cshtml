@@ -1,0 +1,677 @@
+@model TravelApp.Application.Dtos.Pois.PoiMobileDto
+@using TravelApp.Admin.Web.Helpers
+@{
+    Layout = "_MobileLayout";
+    var lang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
+    var audioAsset = Model.AudioAssets.FirstOrDefault(a => a.LanguageCode == lang) 
+                  ?? Model.AudioAssets.FirstOrDefault();
+    var audioUrl = audioAsset?.AudioUrl;
+    
+    // Đồng bộ logic lấy SpeechText giống TourDetailViewModel.cs
+    var speechText = Model.SpeechTexts.FirstOrDefault(s => s.LanguageCode == lang)?.Text 
+                     ?? Model.SpeechText ?? Model.Description;
+    
+    // Sửa lỗi CS1061: Tự tạo URL QR Code giống logic Mobile
+    // Trỏ thẳng về trang web hiện tại để người dùng có thể quét và xem ngay trên điện thoại
+    var request = Context.Request;
+    var currentUrl = $"{request.Scheme}://{request.Host}{request.Path}";
+    var hostIp = request.Host.Host;
+    var apiUrl = ViewBag.ApiUrl ?? $"http://{hostIp}:5001"; 
+    var quickChartBase = "https://quickchart.io/qr?text=";
+    var qrImageUrl = quickChartBase + Uri.EscapeDataString(currentUrl) + "&size=250";
+    // Nhận diện Owner từ cả Identity System và Cookie thủ công của trang Public Login
+    bool isOwner = User.IsInRole("Owner") || Context.Request.Cookies["UserRole"] == "Owner";
+
+    // Hàm phụ trợ để hiển thị tên ngôn ngữ trên Server-side
+    string GetLanguageDisplayText(string code)
+    {
+        var normalized = code?.Trim().Split('-')[0].Split('_')[0].ToLower() ?? "";
+        return normalized switch
+        {
+            "vi" => "Tiếng Việt 🇻🇳",
+            "en" => "English 🇺🇸",
+            "fr" => "Français 🇫🇷",
+            "ja" => "日本語 🇯🇵",
+            _ => normalized.ToUpper()
+        };
+    }
+}
+
+<style>
+    .detail-container {
+        background-color: white;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Top Image Area */
+    .detail-hero {
+        height: 300px;
+        background-color: #e0e0e0;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    .hero-btn {
+        position: absolute;
+        top: 20px;
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 10;
+    }
+
+    .btn-back { left: 20px; background-color: var(--mobile-pink); color: white; }
+    .btn-stop { right: 20px; background-color: white; color: var(--mobile-pink); }
+
+    /* Content */
+    .detail-body {
+        padding: 25px 20px;
+        border-radius: 30px 30px 0 0;
+        background: white;
+        margin-top: -30px;
+        z-index: 5;
+    }
+
+    .poi-title { font-size: 1.5rem; font-weight: 800; color: #000; margin-bottom: 5px; }
+    .rating-stars { color: #ffca28; font-size: 0.9rem; margin-bottom: 5px; }
+    .poi-subtitle { color: #888; font-size: 0.9rem; margin-bottom: 20px; }
+
+    /* Audio Player Gradient giống TourDetailPage.xaml */
+    .audio-player-box {
+        background: linear-gradient(135deg, #0F5A6D 0%, #4B237F 100%);
+        border-radius: 20px;
+        padding: 20px;
+        color: white;
+        margin-bottom: 20px;
+    }
+
+    .audio-label { font-size: 16px; font-weight: 700; margin-bottom: 15px; display: block; }
+    
+    .player-controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .play-btn-circle {
+        width: 48px !important; height: 48px !important;
+        background-color: #E31667 !important;
+    }
+
+    .play-btn-circle {
+        width: 50px; height: 50px;
+        background-color: var(--mobile-pink);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem;
+        cursor: pointer;
+        border: none;
+        color: white;
+    }
+    
+    .transcript-area {
+        margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+        display: none;
+    }
+    .np-label { color: #FFC107; font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+    .np-text { font-size: 13px; opacity: 0.9; line-height: 1.4; }
+
+    .progress-container { flex: 1; }
+    input[type=range].audio-slider {
+        width: 100%;
+        accent-color: #E31667;
+        height: 4px;
+        background: rgba(255,255,255,0.3);
+        border-radius: 2px;
+    }
+
+    .poi-description {
+        color: #666;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 30px;
+    }
+
+    /* QR Section */
+    .qr-section {
+        border: 1px solid #eee;
+        border-radius: 25px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .qr-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+    }
+
+    .qr-image { width: 180px; height: 180px; }
+
+    .btn-view-tour {
+        background-color: var(--mobile-pink);
+        color: white;
+        border-radius: 25px; height: 50px;
+        padding: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        border: none;
+    }
+
+    /* Speech Text Editor Section */
+    .speech-text-editor-section {
+        border: 1px solid #eee;
+        border-radius: 25px;
+        padding: 20px;
+        margin-bottom: 30px;
+        background-color: #fcfcfc;
+    }
+    .speech-text-editor-section .form-control {
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        padding: 10px;
+        font-size: 0.95rem;
+    }
+    .speech-text-editor-section .btn-primary {
+        background-color: var(--mobile-pink);
+        border-color: var(--mobile-pink);
+        border-radius: 12px;
+        padding: 8px 20px;
+        font-weight: bold;
+    }
+    .speech-text-editor-section .btn-outline-secondary {
+        border-color: #ccc;
+        color: #666;
+        border-radius: 12px;
+        font-weight: bold;
+    }
+
+    /* Language Selection Modal */
+    .language-selection-modal {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end; /* Align to bottom */
+        z-index: 2000; /* Above everything else */
+    }
+    .modal-backdrop {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0,0,0,0.6);
+    }
+    .modal-content {
+        background-color: white;
+        width: 100%;
+        max-width: 414px; /* Match mobile container width */
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
+        z-index: 2001;
+        max-height: 80%; /* Limit height for scrollability */
+        overflow-y: auto;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+    .language-option {
+        cursor: pointer;
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .language-option:last-child {
+        border-bottom: none;
+    }
+    .language-option:hover {
+        background-color: #f8f8f8;
+    }
+</style>
+
+<div class="detail-container content-scroll">
+    <div class="detail-hero">
+        <button class="hero-btn btn-back" onclick="location.href='@Url.Action("Explore", "Public", new { area = "" })'"><i class="bi bi-chevron-left"></i></button>
+        <button class="hero-btn btn-stop" onclick="stopAudio()"><i class="bi bi-stop-fill"></i></button>
+        
+        @if(!string.IsNullOrEmpty(Model.ImageUrl)) {
+            <img src="@Model.ImageUrl" style="width: 100%; height: 100%; object-fit: cover;" />
+        } else {
+            <span>@Model.Title</span>
+        }
+    </div>
+
+    <div class="detail-body">
+        <h1 class="poi-title">@Model.Title</h1>
+        <div class="rating-stars">
+            <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+        </div>
+        <p class="poi-subtitle">@Model.Subtitle</p>
+
+        <div class="audio-player-box">
+            <span class="audio-label">@WebLocalizationHelper.Get("AudioGuide", lang)</span>
+            <div class="player-controls">
+                <button class="play-btn-circle" id="audioToggle" onclick="toggleAudio()">
+                    <i class="bi bi-play-fill" id="playIcon"></i>
+                </button>
+                <div class="progress-container">
+                    <input type="range" class="audio-slider" id="audioProgress" value="0" min="0" max="100">
+                </div>
+            </div>
+            <div class="transcript-area" id="transcriptArea">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="np-label">@WebLocalizationHelper.Get("NowPlayingAudio", lang).ToUpper()</div>
+                    <div class="small text-white opacity-50" id="nowPlayingLang">(@GetLanguageDisplayText(lang))</div>
+                </div>
+                <div class="np-text" id="transcriptText" style="max-height: 150px; overflow-y: auto;">@speechText</div>
+            </div>
+            <audio id="mainAudio" src="@audioUrl"></audio>
+        </div>
+
+        <button class="btn-view-tour w-100" onclick="location.href='@Url.Action("TourMap", "Public", new { tourId = Model.Id, poiId = Model.Id, area = "" })'">
+            <i class="bi bi-geo-fill"></i>
+            @WebLocalizationHelper.Get("MapView", lang)
+        </button>
+
+        <div class="poi-description">
+            @Model.Description
+        </div>
+
+        @if (isOwner)
+        {
+            <div class="speech-text-editor-section">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fw-bold text-danger">@WebLocalizationHelper.Get("EditSpeechTextOwner", lang)</div>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnSelectSpeechLanguage" onclick="toggleSpeechLanguageMenu()">
+                        <span id="selectedSpeechLanguageDisplay">@GetLanguageDisplayText(Model.SpeechTextLanguageCode ?? lang)</span>
+                    </button>
+                </div>
+                <p class="small text-muted mb-2">@WebLocalizationHelper.Get("ChooseLanguageDesc", lang)</p>
+                <textarea id="speechTextInput" class="form-control mb-3" rows="5" placeholder="@WebLocalizationHelper.Get("SpeechTextPlaceholder", lang)"></textarea>
+                <div class="d-flex justify-content-between align-items-center">
+                    <button class="btn btn-primary" id="btnSaveSpeechText" onclick="saveSpeechText()">@WebLocalizationHelper.Get("SaveContent", lang)</button>
+                    <span id="savingIndicator" class="text-info" style="display:none;">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        @WebLocalizationHelper.Get("Saving", lang)...
+                    </span>
+                </div>
+            </div>
+        }
+
+        <div class="qr-section">
+            <div class="qr-label">@WebLocalizationHelper.Get("ScanToShare", lang)</div>
+            <img src="@qrImageUrl" class="qr-image" alt="QR Code" />
+        </div>
+    </div>
+</div>
+
+@if (isOwner)
+{
+    <div class="language-selection-modal" id="speechLanguageModal" style="display:none;">
+        <div class="modal-backdrop" onclick="toggleSpeechLanguageMenu()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@WebLocalizationHelper.Get("ChooseTtsLanguage", lang)</h5>
+                <button type="button" class="btn-close" onclick="toggleSpeechLanguageMenu()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body" id="speechLanguageOptions">
+                <!-- Language options will be injected here by JS -->
+            </div>
+        </div>
+    </div>
+}
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+    <script>
+        const audio = document.getElementById('mainAudio');
+        const progress = document.getElementById('audioProgress');
+        const icon = document.getElementById('playIcon');
+        let playTracked = false;
+
+        // --- Speech Text Editing Variables ---
+        const poiId = @Model.Id;
+        let speechTextsByLanguage = {}; // Dictionary to hold all speech texts
+        let selectedSpeechLanguageCode = normalizeLanguageCode('@(Model.SpeechTextLanguageCode ?? lang)');
+        let hasPendingSpeechTextChanges = false;
+        let speechTextAutoSaveTimeout;
+        const supportedAppLanguages = ['vi', 'en', 'fr', 'ja']; // Hardcoded for simplicity, could come from server
+
+        // Initialize speechTextsByLanguage from Model
+        @if (Model.SpeechTexts != null)
+        {
+            foreach (var st in Model.SpeechTexts)
+            {
+                <text>
+                    speechTextsByLanguage[normalizeLanguageCode('@st.LanguageCode')] = `@Html.Raw(st.Text?.Replace("`", "\\`").Replace("'", "\\'"))`;
+                </text>
+            }
+        }
+        // Fallback: If Model.SpeechText is present and no specific entry for its language code exists in SpeechTexts
+        @if (!string.IsNullOrEmpty(Model.SpeechText) && !string.IsNullOrEmpty(Model.SpeechTextLanguageCode) && (Model.SpeechTexts == null || !Model.SpeechTexts.Any(st => st.LanguageCode == Model.SpeechTextLanguageCode)))
+        {
+            <text>
+                speechTextsByLanguage[normalizeLanguageCode('@Model.SpeechTextLanguageCode')] = `@Html.Raw(Model.SpeechText?.Replace("`", "\\`").Replace("'", "\\'"))`;
+            </text>
+        }
+        // Ensure the currently selected language has a value, even if empty
+        if (!speechTextsByLanguage[selectedSpeechLanguageCode]) {
+            speechTextsByLanguage[selectedSpeechLanguageCode] = '';
+        }
+
+        const speechTextInput = document.getElementById('speechTextInput');
+        const btnSaveSpeechText = document.getElementById('btnSaveSpeechText');
+        const savingIndicator = document.getElementById('savingIndicator');
+        const speechLanguageModal = document.getElementById('speechLanguageModal');
+        const speechLanguageOptionsDiv = document.getElementById('speechLanguageOptions');
+        const selectedSpeechLanguageDisplay = document.getElementById('selectedSpeechLanguageDisplay');
+
+        function toggleAudio() {
+            // Đồng bộ 100% với logic TourDetailViewModel.cs: Dừng trước khi phát mới
+            if (!audio.paused || window.speechSynthesis.speaking) {
+                stopAudio();
+                // Nếu người dùng nhấn khi đang phát thì chỉ dừng (Toggle off)
+                if (!audio.paused || window.speechSynthesis.speaking) return;
+            }
+
+            // 1. Ưu tiên phát File Audio (mp3)
+            const hasValidAudioFile = audio.src && 
+                                     !audio.src.endsWith('/') && 
+                                     audio.src !== window.location.href && 
+                                     audio.src !== "";
+
+            if (hasValidAudioFile) {
+                if (audio.paused) {
+                    window.speechSynthesis.cancel(); // Đảm bảo dừng TTS
+                    const playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            showTranscriptArea();
+                            icon.classList.replace('bi-play-fill', 'bi-pause-fill');
+                            trackAudioPlay();
+                        }).catch(e => {
+                            console.warn("Audio file error, falling back to TTS:", e);
+                            playTts();
+                        });
+                    }
+                } else {
+                    pauseAudio();
+                }
+            } else {
+                // 2. Dự phòng: TTS giống hệt logic PlayPoiAudioAsync
+                playTts();
+            }
+        }
+
+        function playTts() {
+            if (window.speechSynthesis.speaking) return;
+
+            // Lấy văn bản từ từ điển ngôn ngữ hoặc editor để hỗ trợ người dùng chưa đăng nhập
+            let textToRead = (speechTextsByLanguage[selectedSpeechLanguageCode] || '').trim();
+            if (speechTextInput) textToRead = speechTextInput.value.trim();
+            
+            // Nếu vẫn rỗng, fallback về nội dung mặc định được render từ server (transcriptText)
+            if (!textToRead) textToRead = document.getElementById('transcriptText').innerText.trim();
+
+            if (!textToRead) {
+                console.warn("No text to read for TTS.");
+                return;
+            }
+
+            const msg = new SpeechSynthesisUtterance(textToRead);
+            
+            // Mapping ngôn ngữ chuẩn xác giống Mobile
+            const langMap = { 'vi': 'vi-VN', 'en': 'en-US', 'fr': 'fr-FR', 'ja': 'ja-JP' };
+            msg.lang = langMap[selectedSpeechLanguageCode] || 'en-US'; // Use selected language for TTS
+            
+            msg.onstart = () => { audio.pause(); };
+            msg.onend = () => icon.className = 'bi bi-play-fill';
+            
+            showTranscriptArea();
+            window.speechSynthesis.speak(msg);
+            icon.classList.replace('bi-play-fill', 'bi-pause-fill');
+            trackAudioPlay();
+        }
+
+        function showTranscriptArea() {
+            const area = document.getElementById('transcriptArea');
+            if (area) area.style.display = 'block';
+            
+            // Đồng bộ nội dung hiển thị ở vùng "Now Playing" tương tự logic phát TTS
+            let text = (speechTextsByLanguage[selectedSpeechLanguageCode] || '').trim();
+            if (speechTextInput) text = speechTextInput.value.trim();
+            if (!text) text = document.getElementById('transcriptText').innerText.trim();
+
+            document.getElementById('transcriptText').innerText = text;
+            document.getElementById('nowPlayingLang').innerText = '(' + getLanguageDisplayText(selectedSpeechLanguageCode) + ')';
+        }
+
+        function pauseAudio() {
+            audio.pause();
+            icon.classList.replace('bi-pause-fill', 'bi-play-fill');
+        }
+
+        function trackAudioPlay() {
+            if (!playTracked) {
+                const apiUrlBase = '@(ViewBag.ApiUrl ?? $"http://{request.Host.Host}:5001")'.replace(/\/$/, '');
+                fetch(apiUrlBase + '/api/pois/' + '@Model.Id' + '/audio-play', { method: 'POST' })
+                    .then(() => playTracked = true)
+                    .catch(err => console.warn('Audio tracking failed', err));
+            }
+        }
+
+        function stopAudio() {
+            if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+            audio.pause();
+            audio.currentTime = 0;
+            const area = document.getElementById('transcriptArea');
+            if (area) area.style.display = 'none';
+            icon.className = 'bi bi-play-fill';
+        }
+
+        audio.ontimeupdate = () => {
+            if (audio.duration) {
+                const pct = (audio.currentTime / audio.duration) * 100;
+                progress.value = pct;
+            }
+        };
+
+        progress.oninput = () => {
+            if (audio.duration) {
+                audio.currentTime = (progress.value / 100) * audio.duration;
+            }
+        };
+
+        // Đảm bảo icon quay về Play khi kết thúc
+        audio.onended = () => icon.classList.replace('bi-pause-fill', 'bi-play-fill');
+
+        // --- Speech Text Editing Functions ---
+        function normalizeLanguageCode(code) {
+            if (!code) return '';
+            return code.trim().split('-')[0].split('_')[0].toLowerCase();
+        }
+
+        function getLanguageDisplayText(code) {
+            const normalized = normalizeLanguageCode(code);
+            switch (normalized) {
+                case 'vi': return 'Tiếng Việt 🇻🇳';
+                case 'en': return 'English 🇺🇸';
+                case 'fr': return 'Français 🇫🇷';
+                case 'ja': return '日本語 🇯🇵';
+                default: return normalized.toUpperCase();
+            }
+        }
+
+        function updateSpeechTextInput() {
+            const text = speechTextsByLanguage[selectedSpeechLanguageCode] || '';
+            if (speechTextInput) {
+                speechTextInput.value = text;
+            }
+            if (selectedSpeechLanguageDisplay) {
+                selectedSpeechLanguageDisplay.textContent = getLanguageDisplayText(selectedSpeechLanguageCode);
+            }
+        }
+
+        function scheduleSpeechTextAutoSave() {
+            clearTimeout(speechTextAutoSaveTimeout);
+            speechTextAutoSaveTimeout = setTimeout(() => {
+                saveSpeechText(false); // Auto-save, no confirmation
+            }, 800);
+        }
+
+        // --- Event Handlers for Speech Text Editor ---
+        if (speechTextInput) {
+            speechTextInput.addEventListener('input', () => {
+                hasPendingSpeechTextChanges = true;
+                scheduleSpeechTextAutoSave();
+            });
+        }
+
+        async function saveSpeechText(showConfirmation = true) {
+            if (!hasPendingSpeechTextChanges) return;
+
+            clearTimeout(speechTextAutoSaveTimeout);
+            if (savingIndicator) savingIndicator.style.display = 'inline-block';
+            if (btnSaveSpeechText) btnSaveSpeechText.disabled = true;
+
+            const currentText = speechTextInput.value.trim();
+            speechTextsByLanguage[selectedSpeechLanguageCode] = currentText;
+
+            const speechTextsArray = Object.keys(speechTextsByLanguage)
+                .filter(key => speechTextsByLanguage[key] && speechTextsByLanguage[key].length > 0)
+                .map(key => ({
+                    languageCode: key,
+                    text: speechTextsByLanguage[key]
+                }));
+
+            // Construct UpsertPoiRequestDto.
+            // Note: PoiMobileDto does not contain Localizations, Duration, Provider, Credit.
+            // We assume the API's PUT endpoint can handle these being null/empty,
+            // or that it will preserve existing values for fields not explicitly sent.
+            const updateDto = {
+                title: '@Html.Raw(Model.Title)',
+                subtitle: '@Html.Raw(Model.Subtitle)',
+                imageUrl: '@Html.Raw(Model.ImageUrl)',
+                location: '@Html.Raw(Model.Location)',
+                latitude: @Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                longitude: @Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                geofenceRadiusMeters: @Model.GeofenceRadiusMeters.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                description: '@Html.Raw(Model.Description)',
+                category: '@Html.Raw(Model.Category)',
+                primaryLanguage: '@Html.Raw(Model.PrimaryLanguage)',
+                duration: null, // Not in PoiMobileDto
+                provider: null, // Not in PoiMobileDto
+                credit: null,   // Not in PoiMobileDto
+                
+                speechText: currentText, // Update the main speechText field too
+                speechTextLanguageCode: selectedSpeechLanguageCode,
+                
+                localizations: [], // Not in PoiMobileDto
+                audioAssets: @Json.Serialize(Model.AudioAssets),
+                speechTexts: speechTextsArray
+            };
+
+            try {
+                const response = await fetch(`@apiUrl/api/pois/${poiId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: JSON.stringify(updateDto)
+                });
+
+                if (response.ok) {
+                    hasPendingSpeechTextChanges = false;
+                    if (showConfirmation) {
+                        alert('Text to speech đã được lưu.');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    alert(`Lỗi khi lưu: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                console.error('Save speech text failed:', error);
+                alert('Lỗi mạng hoặc lỗi không xác định khi lưu.');
+            } finally {
+                if (savingIndicator) savingIndicator.style.display = 'none';
+                if (btnSaveSpeechText) btnSaveSpeechText.disabled = false;
+            }
+        }
+
+        function toggleSpeechLanguageMenu() {
+            if (speechLanguageModal) {
+                speechLanguageModal.style.display = speechLanguageModal.style.display === 'none' ? 'flex' : 'none';
+                if (speechLanguageModal.style.display === 'flex') {
+                    renderSpeechLanguageOptions();
+                }
+            }
+        }
+
+        async function selectSpeechLanguage(langCode) {
+            if (hasPendingSpeechTextChanges) {
+                await saveSpeechText(false); // Auto-save before changing language
+            }
+            selectedSpeechLanguageCode = langCode;
+            updateSpeechTextInput();
+            toggleSpeechLanguageMenu();
+        }
+
+        function renderSpeechLanguageOptions() {
+            if (!speechLanguageOptionsDiv) return;
+            speechLanguageOptionsDiv.innerHTML = ''; // Clear previous options
+
+            supportedAppLanguages.forEach(code => {
+                const isSelected = code === selectedSpeechLanguageCode;
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'language-option'; // Add some styling later
+                optionDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <span>${getLanguageDisplayText(code)}</span>
+                        ${isSelected ? '<i class="bi bi-check-lg text-success"></i>' : ''}
+                    </div>
+                `;
+                optionDiv.onclick = () => selectSpeechLanguage(code);
+                speechLanguageOptionsDiv.appendChild(optionDiv);
+            });
+        }
+
+        // Initial setup for editor
+        updateSpeechTextInput();
+    </script>
+}

@@ -1,5 +1,5 @@
 ﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+           xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:TravelApp"
              xmlns:services="clr-namespace:TravelApp.Mobile.Services"
              x:Class="TravelApp.ExplorePage"
@@ -212,15 +212,62 @@
                                FontAttributes="Bold"
                                TextColor="White" />
                         <Label x:Name="AudioStatusTextLabel"
-                               Text="Đang phát audio"
+                               Text="{Binding NowPlayingAudioText, Source={x:Static services:LocalizationManager.Instance}}"
                                FontSize="13"
                                TextColor="#E6FFF7"
                                LineBreakMode="TailTruncation" />
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- New Trending Section -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,5">
+                    <Label Text="{Binding TrendingTitle, Source={x:Static services:LocalizationManager.Instance}}" Style="{StaticResource SectionTitleStyle}" />
+                </Grid>
+
+                <CollectionView ItemsSource="{Binding ForYouItems}" HeightRequest="120">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border WidthRequest="220"
+                                    Padding="10"
+                                    StrokeShape="RoundRectangle 16"
+                                    BackgroundColor="{AppThemeBinding Light=#F8F9FB, Dark=#1E232E}"
+                                    StrokeThickness="0">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenTourDetailCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="70,*" ColumnSpacing="10">
+                                    <Border Grid.Column="0" StrokeShape="RoundRectangle 10" StrokeThickness="0">
+                                        <Image Source="{Binding ImageUrl}" Aspect="AspectFill" HeightRequest="70" WidthRequest="70" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                        <Label Text="{Binding Title}" 
+                                               FontSize="14" 
+                                               FontAttributes="Bold" 
+                                               MaxLines="1" 
+                                               LineBreakMode="TailTruncation" />
+                                        <Border BackgroundColor="#FFE0E0" Padding="6,2" HorizontalOptions="Start" StrokeShape="RoundRectangle 4" StrokeThickness="0">
+                                            <HorizontalStackLayout Spacing="4">
+                                                <Label Text="🔥" FontSize="10" VerticalTextAlignment="Center"/>
+                                                <Label Text="{Binding PopularNowText, Source={x:Static services:LocalizationManager.Instance}}" FontSize="10" FontAttributes="Bold" TextColor="#D32F2F" VerticalTextAlignment="Center"/>
+                                            </HorizontalStackLayout>
+                                        </Border>
+                                        <Label Text="{Binding Location}" 
+                                               FontSize="11" 
+                                               TextColor="#8C93A5" 
+                                               MaxLines="1" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center" Margin="0,12,0,8">
-                    <Label Text="🍲 Ho Chi Minh Food Tour" Style="{StaticResource SectionTitleStyle}" />
+                    <Label Text="{Binding HcmFoodTourText, Source={x:Static services:LocalizationManager.Instance}}" Style="{StaticResource SectionTitleStyle}" />
                     <Label Grid.Column="1"
                            Text="{Binding FeaturedText, Source={x:Static services:LocalizationManager.Instance}}"
                            FontSize="12"
@@ -311,7 +358,7 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <Label Text="🍜 Hanoi Food Tour" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,8" />
+                <Label Text="{Binding HanoiFoodTourText, Source={x:Static services:LocalizationManager.Instance}}" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,8" />
 
                 <CollectionView x:Name="EditorsChoiceCollection" ItemsSource="{Binding EditorsChoiceItems}" HeightRequest="260" SelectionMode="None">
                     <CollectionView.ItemsLayout>
@@ -664,7 +711,20 @@
 
                         <Grid ColumnDefinitions="46,*" HeightRequest="54">
                             <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="#20FFFFFF" StrokeShape="RoundRectangle 17" VerticalOptions="Center" HorizontalOptions="Center">
-                                <Path Data="M6,12H16M13,9L16,12L13,15" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeLineJoin="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
+                                <Path Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeLineJoin="Round" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Path.Triggers>
+                                        <DataTrigger TargetType="Path" 
+                                                     Binding="{Binding IsLoggedIn, Source={x:Static services:LocalizationManager.Instance}}" 
+                                                     Value="False">
+                                            <Setter Property="Data" Value="M6,12H16M13,9L16,12L13,15" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Path" 
+                                                     Binding="{Binding IsLoggedIn, Source={x:Static services:LocalizationManager.Instance}}" 
+                                                     Value="True">
+                                            <Setter Property="Data" Value="M16,12H6M9,9L6,12L9,15" />
+                                        </DataTrigger>
+                                    </Path.Triggers>
+                                </Path>
                             </Border>
                             <Label Grid.Column="1" Text="{Binding AuthMenuText, Source={x:Static services:LocalizationManager.Instance}}" TextColor="White" FontSize="18" VerticalTextAlignment="Center" />
                             <Grid.GestureRecognizers>

@@ -1,6 +1,7 @@
 using TravelApp.Application.Dtos.Pois;
 using TravelApp.Application.Dtos.Users;
 using TravelApp.Application.Dtos.Tours;
+using TravelApp.Admin.Web.Models;
 
 namespace TravelApp.Admin.Web.Services;
 
@@ -29,4 +30,7 @@ public interface ITravelAppApiClient
     Task<bool> UpdateTourAsync(int id, UpsertTourRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> DeleteTourAsync(int id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<object>> GetTopPoisAsync(int limit = 10, CancellationToken cancellationToken = default);
+    
+    Task<DashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken = default);
+    Task<List<PoiStatDto>> GetPoiStatsAsync(CancellationToken cancellationToken = default);
 }
