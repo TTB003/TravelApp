@@ -951,14 +951,14 @@ public class TourDetailViewModel : INotifyPropertyChanged
         try
         {
             var config = MauiProgram.Services.GetRequiredService<AppConfig>();
-            var apiBase = config.ApiBaseUrl?.TrimEnd('/') ?? "http://172.20.10.14:5001";
+            var apiBase = config.ApiBaseUrl?.TrimEnd('/') ?? "http://192.168.5.21:5001";
 
             // Tự động lấy Host từ apiBase nếu không cấu hình AdminHost để đồng bộ IP
             var apiUri = new Uri(apiBase);
             var hostIp = apiUri.Host;
 
             // Fix: Nếu host là 10.0.2.2 (Android Emulator), chuyển về IP thật để QR có thể quét được từ ngoài
-            if (hostIp == "10.0.2.2") hostIp = "172.20.10.14";
+            if (hostIp == "10.0.2.2") hostIp = "192.168.5.21";
 
             var host = config.AdminHost?.TrimEnd('/') ?? $"{apiUri.Scheme}://{hostIp}";
 

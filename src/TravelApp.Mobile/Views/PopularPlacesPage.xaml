@@ -8,7 +8,7 @@
     <Grid>
         <!-- URL này trỏ về địa chỉ trang web Admin của bạn -->
         <WebView x:Name="HeatmapWebView" 
-                 Source="http://172.20.10.14:7020/Tours/Heatmap"
+                 Source="http://192.168.5.21:7020/Tours/Heatmap"
                  VerticalOptions="FillAndExpand" 
                  HorizontalOptions="FillAndExpand" />
     </Grid>

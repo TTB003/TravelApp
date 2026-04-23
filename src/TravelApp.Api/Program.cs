@@ -23,8 +23,8 @@ builder.Services.AddCors(options =>
             try
             {
                 var uri = new Uri(origin);
-                // Allow developer IP 172.20.10.14
-                return string.Equals(uri.Host, "172.20.10.14", StringComparison.OrdinalIgnoreCase);
+                // Allow developer IP 192.168.5.21
+                return string.Equals(uri.Host, "192.168.5.21", StringComparison.OrdinalIgnoreCase);
             }
             catch
             {

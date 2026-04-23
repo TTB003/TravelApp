@@ -18,7 +18,7 @@ public class TranslationService : ITranslationService
         _httpClient = httpClient;
         
         // Sử dụng AdminHost từ config để đồng bộ với server cục bộ
-        var host = config.AdminHost?.TrimEnd('/') ?? "172.20.10.14";
+        var host = config.AdminHost?.TrimEnd('/') ?? "192.168.5.21";
         _apiUrl = $"{host}:5000/translate";
     }
 
