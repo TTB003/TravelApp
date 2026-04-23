@@ -95,6 +95,7 @@ using (var scope = app.Services.CreateScope())
     await EnsurePoiSpeechTextLanguageCodeColumnAsync(dbContext);
     await EnsurePoiQrScanCountColumnAsync(dbContext);
     await EnsurePoiAudioPlayCountColumnAsync(dbContext);
+    await EnsureActivityLogsTableAsync(dbContext);
 }
 
 if (app.Environment.IsDevelopment())
@@ -150,6 +151,40 @@ app.MapGet("/api/admin/poi-stats", async (TravelAppDbContext dbContext) =>
     return Results.Ok(topStats);
 });
 
+// Endpoint lấy danh sách người dùng thực tế đang hoạt động (trong 15 phút qua)
+app.MapGet("/api/admin/active-users", async (TravelAppDbContext dbContext) =>
+{
+    var fifteenMinsAgo = DateTimeOffset.UtcNow.AddMinutes(-15);
+
+    // Sử dụng l.Id để tạo tên khách duy nhất cho mỗi lượt truy cập (tránh trùng lặp khi test cùng mạng LAN)
+    var activeUsers = await dbContext.Database
+        .SqlQueryRaw<ActiveUserResult>(@"
+            SELECT 
+                CASE 
+                    WHEN u.Email IS NOT NULL THEN u.Email 
+                    ELSE 'Khách #' + CAST(l.Id AS NVARCHAR) 
+                END AS Name,
+                CASE 
+                    WHEN l.UserId IS NOT NULL THEN 'Mobile (Auth)'
+                    ELSE l.ActivityType
+                END AS ClientType
+            FROM ActivityLogs l
+            LEFT JOIN Users u ON l.UserId = CAST(u.Id AS NVARCHAR(450))
+            WHERE l.LastSeenAtUtc > {0}
+            ORDER BY l.LastSeenAtUtc DESC", fifteenMinsAgo)
+        .ToListAsync();
+
+    return Results.Ok(activeUsers);
+});
+
+// Helper để ghi nhận hoạt động
+async Task LogActivity(TravelAppDbContext db, string? userId, string ip, string type) {
+    await db.Database.ExecuteSqlRawAsync(@"
+        INSERT INTO ActivityLogs (UserId, IpAddress, LastSeenAtUtc, ActivityType)
+        VALUES ({0}, {1}, {2}, {3})", 
+        userId, ip, DateTimeOffset.UtcNow, type);
+}
+
 // Endpoint ghi nhận lượt quét QR
 app.MapPost("/api/pois/{id}/qr-scan", async (int id, TravelAppDbContext dbContext) =>
 {
@@ -164,6 +199,9 @@ app.MapPost("/api/pois/{id}/qr-scan", async (int id, TravelAppDbContext dbContex
 // Endpoint ghi nhận lượt quét QR từ trình duyệt và chuyển hướng về Web UI
 app.MapGet("/api/pois/{id}/qr-track", async (int id, string redirectUrl, TravelAppDbContext dbContext) =>
 {
+    var ip = "127.0.0.1"; // Trong thực tế lấy từ HttpContext.Connection.RemoteIpAddress
+    await LogActivity(dbContext, null, ip, "Mobile (Scan)");
+
     // Tăng bộ đếm quét QR
     await dbContext.Database.ExecuteSqlRawAsync(
         "UPDATE POI SET QrScanCount = ISNULL(QrScanCount, 0) + 1 WHERE Id = {0}", id);
@@ -175,6 +213,8 @@ app.MapGet("/api/pois/{id}/qr-track", async (int id, string redirectUrl, TravelA
 // Endpoint ghi nhận lượt nghe Audio
 app.MapPost("/api/pois/{id}/audio-play", async (int id, TravelAppDbContext dbContext) =>
 {
+    await LogActivity(dbContext, null, "127.0.0.1", "Audio Player");
+
     // Cập nhật lượt nghe bằng SQL
     var affected = await dbContext.Database.ExecuteSqlRawAsync(
         "UPDATE POI SET AudioPlayCount = ISNULL(AudioPlayCount, 0) + 1 WHERE Id = {0}", id);
@@ -539,12 +579,7 @@ static async Task EnsurePoiSpeechTextColumnAsync(TravelAppDbContext dbContext)
 static async Task EnsurePoiSpeechTextLanguageCodeColumnAsync(TravelAppDbContext dbContext)
 {
     var connection = dbContext.Database.GetDbConnection();
-    var shouldClose = connection.State != System.Data.ConnectionState.Open;
-
-    if (shouldClose)
-    {
-        await connection.OpenAsync();
-    }
+    if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
     try
     {
@@ -552,22 +587,39 @@ static async Task EnsurePoiSpeechTextLanguageCodeColumnAsync(TravelAppDbContext 
         command.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'POI' AND COLUMN_NAME = 'SpeechTextLanguageCode'";
         var exists = Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
 
-        if (exists)
+        if (!exists)
         {
-            return;
+            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE [POI] ADD [SpeechTextLanguageCode] nvarchar(10) NULL;");
         }
-
-        await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE [POI] ADD [SpeechTextLanguageCode] nvarchar(10) NULL;");
     }
     finally
     {
-        if (shouldClose)
-        {
-            await connection.CloseAsync();
-        }
+        // Không đóng connection ở đây vì DBContext quản lý
+    }
+}
+
+static async Task EnsureActivityLogsTableAsync(TravelAppDbContext dbContext)
+{
+    var connection = dbContext.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+    
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = "SELECT OBJECT_ID(N'[ActivityLogs]')";
+    if (await cmd.ExecuteScalarAsync() is DBNull || await cmd.ExecuteScalarAsync() is null)
+    {
+        await dbContext.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE ActivityLogs (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                UserId NVARCHAR(450) NULL,
+                IpAddress NVARCHAR(50) NOT NULL,
+                LastSeenAtUtc DATETIMEOFFSET NOT NULL,
+                ActivityType NVARCHAR(50) NOT NULL
+            );
+            CREATE INDEX IX_ActivityLogs_LastSeen ON ActivityLogs(LastSeenAtUtc);");
     }
 }
 
 app.Run();
 
 public record PoiStatResult(int Id, string Title, string? Category, int QrScans, int AudioPlays);
+public record ActiveUserResult(string Name, string ClientType);

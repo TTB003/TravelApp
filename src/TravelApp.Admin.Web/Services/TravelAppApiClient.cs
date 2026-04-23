@@ -380,4 +380,10 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
             return [];
         }
     }
+    public async Task<List<OnlineUserDisplayDto>> GetActiveUsersAsync(CancellationToken ct)
+{
+    return await _httpClient.GetFromJsonAsync<List<OnlineUserDisplayDto>>("/api/admin/active-users", ct) 
+           ?? new List<OnlineUserDisplayDto>();
+}
+
 }

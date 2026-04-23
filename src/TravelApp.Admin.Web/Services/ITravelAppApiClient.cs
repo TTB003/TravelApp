@@ -33,4 +33,5 @@ public interface ITravelAppApiClient
     
     Task<DashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken = default);
     Task<List<PoiStatDto>> GetPoiStatsAsync(CancellationToken cancellationToken = default);
+    Task<List<OnlineUserDisplayDto>> GetActiveUsersAsync(CancellationToken ct);
 }

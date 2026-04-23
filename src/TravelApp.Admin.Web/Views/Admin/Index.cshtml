@@ -47,33 +47,71 @@
                 <div class="stat-label">Lượt quét QR</div>
             </div>
         </article>
+
+        <article class="stat-card">
+            <div class="stat-icon stat-icon-cyan" style="background: rgba(0, 255, 255, 0.1); color: #008b8b;">🌐</div>
+            <div>
+                <div class="stat-value">@Model.OnlineUserCount</div>
+                <div class="stat-label">Trực tuyến</div>
+            </div>
+        </article>
     </section>
 
-    <section class="panel-card">
-        <div class="section-header mb-3">
-            <div>
-                <h2 class="section-title">📍 Xếp hạng địa điểm phổ biến</h2>
-                <p class="section-subtitle">Dựa trên tổng lượt quét QR và nghe Audio.</p>
-            </div>
-        </div>
-        <div class="activity-list" id="ranking-list">
-            @{ int rank = 1; }
-            @foreach (var poi in Model.RecentPois)
-            {
-                var totalInteractions = poi.AudioPlays + poi.QrScans;
-                <div class="activity-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="fw-bold text-secondary" style="width: 30px;">#@(rank++)</div>
-                        <div>
-                            <strong class="d-block text-dark">@poi.Title - <span class="text-primary">@totalInteractions lượt</span></strong>
-                            <small class="text-muted">@(poi.Category ?? "Địa điểm")</small>
-                        </div>
-                    </div>
-                    <div class="text-muted small">
-                        <i class="bi bi-headphones"></i> @poi.AudioPlays &nbsp; <i class="bi bi-qr-code"></i> @poi.QrScans
+    <div class="row g-4 mt-1">
+        <div class="col-lg-7">
+            <section class="panel-card h-100">
+                <div class="section-header mb-3">
+                    <div>
+                        <h2 class="section-title">📍 Xếp hạng địa điểm</h2>
+                        <p class="section-subtitle">Dựa trên lượt quét QR và Audio.</p>
                     </div>
                 </div>
-            }
+                <div class="activity-list" id="ranking-list">
+                    @{ int rank = 1; }
+                    @foreach (var poi in Model.RecentPois)
+                    {
+                        var totalInteractions = poi.AudioPlays + poi.QrScans;
+                        <div class="activity-item d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="fw-bold text-secondary" style="width: 30px;">#@(rank++)</div>
+                                <div>
+                                    <strong class="d-block text-dark">@poi.Title - <span class="text-primary">@totalInteractions</span></strong>
+                                    <small class="text-muted">@(poi.Category ?? "Địa điểm")</small>
+                                </div>
+                            </div>
+                            <div class="text-muted small">
+                                <i class="bi bi-headphones"></i> @poi.AudioPlays &nbsp; <i class="bi bi-qr-code"></i> @poi.QrScans
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
         </div>
-    </section>
+
+        <div class="col-lg-5">
+            <section class="panel-card h-100">
+                <div class="section-header mb-3">
+                    <div>
+                        <h2 class="section-title">👥 Người dùng </h2>
+                        <p class="section-subtitle">Truy cập gần đây (App/Web).</p>
+                    </div>
+                </div>
+                <div class="activity-list" style="max-height: 400px; overflow-y: auto;">
+                    @if (Model.OnlineUsers != null && Model.OnlineUsers.Any())
+                    {
+                        @foreach (var user in Model.OnlineUsers)
+                        {
+                            <div class="activity-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle @(user.ClientType == "Mobile" ? "bg-primary" : "bg-success")" style="width: 8px; height: 8px;" title="@user.ClientType"></div>
+                                    <span class="text-dark fw-medium">@user.Name</span>
+                                </div>
+                                <span class="badge bg-light text-dark border" style="font-size: 0.7rem;">@user.ClientType</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
 </div>

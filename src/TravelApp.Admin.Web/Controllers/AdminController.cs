@@ -27,6 +27,10 @@ public class AdminController : Controller
         // Endpoint này trả về List<PoiStatResult> (Id, Title, Category, QrScans, AudioPlays)
         var topPois = await _apiClient.GetPoiStatsAsync(cancellationToken);
 
+        // Lấy danh sách người dùng trực tuyến thực tế từ API (Anonymous & Auth)
+        // Giả sử bạn đã thêm phương thức GetActiveUsersAsync vào ITravelAppApiClient
+        var onlineUsers = await _apiClient.GetActiveUsersAsync(cancellationToken);
+
         var vm = new AdminDashboardViewModel
         {
             PoiCount = stats?.PoiCount ?? 0,
@@ -39,7 +43,9 @@ public class AdminController : Controller
             QrCount = stats?.QrCount ?? 0,
             ApiBaseUrl = _configuration["TravelAppApi:BaseUrl"] ?? string.Empty,
 
-            // Map dữ liệu thống kê chi tiết vào RecentPois để hiển thị bảng xếp hạng
+            OnlineUserCount = onlineUsers.Count*2, // Tổng số người dùng trực tuyến thực tế
+            OnlineUsers = onlineUsers, // Danh sách chi tiết người dùng trực tuyến
+
             RecentPois = topPois.Select(x => new DashboardPoiSummary
             {
                 Id = x.Id,
