@@ -268,6 +268,14 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Danh sách POI để theo dõi vị trí
+        const allPois = @Html.Raw(Json.Serialize(Model.Select(p => new { 
+            id = p.Id, 
+            lat = p.Latitude,
+            lng = p.Longitude,
+            radius = p.GeofenceRadiusMeters
+        })));
+
         // Khởi tạo Map
         var map;
         document.addEventListener('DOMContentLoaded', function() {
@@ -286,7 +294,50 @@
                 radius: 10, color: 'white', weight: 3, fillOpacity: 1, fillColor: '#0D6EFD' 
             }).addTo(map);
 
+            // Kích hoạt Geofencing theo dõi vị trí người dùng
+            initGeofencing();
         });
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Bán kính trái đất (m)
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function initGeofencing() {
+            console.log("Geofencing initialized with SIMULATED position.");
+            
+            // Tọa độ giả lập người dùng (SGU)
+            const uLat = 10.7793043;
+            const uLng = 106.6842107;
+            
+            console.log(`Simulated User Position: ${uLat}, ${uLng}`);
+
+            // Kiểm tra định kỳ mỗi 3 giây để mô phỏng việc quét vị trí
+            setInterval(() => {
+                allPois.forEach(poi => {
+                    const pLat = parseFloat(poi.lat);
+                    const pLng = parseFloat(poi.lng);
+                    const dist = getDistance(uLat, uLng, pLat, pLng);
+                    const threshold = poi.radius || 100;
+
+                    console.log(`Checking POI ${poi.id}: distance ${dist.toFixed(1)}m / threshold ${threshold}m`);
+
+                    if (dist <= threshold) {
+                        if (sessionStorage.getItem('lastAutoPoi') != poi.id) {
+                            sessionStorage.setItem('lastAutoPoi', poi.id);
+                            console.warn(`[MATCH] Near POI ${poi.id}! Redirecting to Details...`);
+                            // Thêm flag autoplay=true để trang Details biết là cần tự phát
+                            window.location.href = `/Public/Details/${poi.id}?autoplay=true`;
+                        }
+                    }
+                });
+            }, 3000);
+        }
 
         function showLangMenu() {
             document.getElementById('langOverlay').style.display = 'flex';

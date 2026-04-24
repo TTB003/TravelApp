@@ -11,6 +11,7 @@ using TravelApp.Services.Abstractions;
 
 namespace TravelApp.ViewModels;
 
+[QueryProperty(nameof(Autoplay), "autoplay")]
 public class TourDetailViewModel : INotifyPropertyChanged
 {
     private readonly Dictionary<string, string> _speechTextsByLanguage = new(StringComparer.OrdinalIgnoreCase);
@@ -26,7 +27,10 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private bool _isSpeechLanguageMenuOpen;
     private bool _isBookmarked;
     private bool _canEditSpeechText;
+    private bool _hasAutoPlayed;
+    private CancellationTokenSource? _locationTrackingCts;
     private int? _currentTourId;
+    private bool _autoplayRequested;
     private CancellationTokenSource? _speechTextAutoSaveCts;
     private readonly IPoiApiClient _poiApiClient;
     private readonly ILocalDatabaseService _localDatabaseService;
@@ -35,6 +39,11 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private readonly IAudioService _audioService;
     private readonly ITourRouteCatalogService _tourRouteCatalogService;
     private readonly TravelApp.Services.Runtime.TourRouteCacheService _tourRouteCacheService;
+
+    public string Autoplay
+    {
+        set => _autoplayRequested = value == "true";
+    }
 
     public PoiModel? Tour
     {
@@ -253,6 +262,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
         BackCommand = new Command(async () =>
         {
             await StopAsync();
+            StopLocationTracking();
             await Shell.Current.GoToAsync("..");
         });
         ViewTourCommand = new Command(async () =>
@@ -464,6 +474,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
                     Tour = model;
                     
                     SetLoadedSpeechTexts(dto.SpeechTexts, dto.SpeechTextLanguageCode, dto.SpeechText ?? dto.Description, dto.PrimaryLanguage);
+                    _ = StartLocationTrackingAsync(_autoplayRequested);
                     _hasPendingSpeechTextChanges = false;
                     IsBookmarked = await _bookmarkHistoryService.IsBookmarkedAsync(id, CancellationToken.None);
                     return;
@@ -529,6 +540,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
                 Tour = cachedModel;
                 
                 SetLoadedSpeechTexts(_currentPoiDto.SpeechTexts, _currentPoiDto.SpeechTextLanguageCode, _currentPoiDto.SpeechText ?? _currentPoiDto.Description, _currentPoiDto.PrimaryLanguage);
+                _ = StartLocationTrackingAsync(_autoplayRequested);
                 _hasPendingSpeechTextChanges = false;
                 IsBookmarked = await _bookmarkHistoryService.IsBookmarkedAsync(id, CancellationToken.None);
                 return;
@@ -542,6 +554,72 @@ public class TourDetailViewModel : INotifyPropertyChanged
         finally
         {
             _suppressSpeechTextAutoSave = false;
+        }
+    }
+
+    private async Task StartLocationTrackingAsync(bool immediateCheck = false)
+    {
+        if (_currentPoiDto == null || _hasAutoPlayed) return;
+
+        StopLocationTracking();
+        _locationTrackingCts = new CancellationTokenSource();
+        var token = _locationTrackingCts.Token;
+
+        try
+        {
+            // Nếu được yêu cầu Autoplay từ trang Explore, kiểm tra vị trí và phát ngay lập tức
+            if (immediateCheck)
+            {
+                var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(5)), token);
+                if (location != null && _currentPoiDto != null)
+                {
+                    double distance = location.CalculateDistance(_currentPoiDto.Latitude, _currentPoiDto.Longitude, DistanceUnits.Kilometers) * 1000;
+                    double radius = _currentPoiDto.GeofenceRadiusMeters ?? 100;
+
+                    if (distance <= radius && !IsPlaying)
+                    {
+                        _hasAutoPlayed = true;
+                        _autoplayRequested = false;
+                        await MainThread.InvokeOnMainThreadAsync(async () => await PlayAudioAsync());
+                        // Vẫn cho vòng lặp chạy tiếp để cập nhật UI nếu cần
+                    }
+                }
+            }
+
+            // Vòng lặp kiểm tra vị trí định kỳ mỗi 10 giây
+            while (!token.IsCancellationRequested && !_hasAutoPlayed)
+            {
+                var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(5)), token);
+                if (location != null && _currentPoiDto != null)
+                {
+                    double distance = location.CalculateDistance(_currentPoiDto.Latitude, _currentPoiDto.Longitude, DistanceUnits.Kilometers) * 1000;
+                    
+                    // Bán kính kích hoạt (ưu tiên GeofenceRadius của POI, mặc định 100m)
+                    double radius = _currentPoiDto.GeofenceRadiusMeters ?? 100;
+
+                    if (distance <= radius && !IsPlaying)
+                    {
+                        _hasAutoPlayed = true;
+                        MainThread.BeginInvokeOnMainThread(async () => await PlayAudioAsync());
+                        break; 
+                    }
+                }
+                await Task.Delay(10000, token); // Đợi 10s trước khi check lại để tiết kiệm pin
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Location Tracking Error: {ex.Message}");
+        }
+    }
+
+    private void StopLocationTracking()
+    {
+        if (_locationTrackingCts != null)
+        {
+            _locationTrackingCts.Cancel();
+            _locationTrackingCts.Dispose();
+            _locationTrackingCts = null;
         }
     }
 
@@ -1000,6 +1078,7 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
     public void Dispose()
     {
+        StopLocationTracking();
         UserProfileService.ProfileChanged -= OnUserProfileChanged;
     }
 }

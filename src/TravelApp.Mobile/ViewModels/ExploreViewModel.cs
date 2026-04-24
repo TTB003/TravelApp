@@ -19,6 +19,8 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
     private readonly IBookmarkHistoryService _bookmarkHistoryService;
     private int _offlineDownloadsCount;
     private string _selectedBottomTab = "Explore";
+    private int? _lastAutoNavigatedPoiId;
+    private CancellationTokenSource? _locationMonitoringCts;
 
     public ObservableCollection<PoiModel> ForYouItems { get; }
     public ObservableCollection<PoiModel> EditorsChoiceItems { get; }
@@ -166,6 +168,54 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
         });
 
         _ = RefreshAsync();
+        _ = StartProximityMonitoring();
+    }
+
+    private async Task StartProximityMonitoring()
+    {
+        _locationMonitoringCts?.Cancel();
+        _locationMonitoringCts = new CancellationTokenSource();
+        var token = _locationMonitoringCts.Token;
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                // Chỉ thực hiện theo dõi khi đang ở tab Explore và không mở Menu
+                if (IsExploreTabActive && !IsMenuOpen)
+                {
+                    var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(5)), token);
+                    if (location != null)
+                    {
+                        var allItems = ForYouItems.Concat(EditorsChoiceItems).ToList();
+                        foreach (var poi in allItems)
+                        {
+                            double distance = location.CalculateDistance(poi.Latitude, poi.Longitude, DistanceUnits.Kilometers) * 1000;
+                            
+                            // Ngưỡng 100m để tự động nhảy sang trang chi tiết
+                            if (distance <= 100) 
+                            {
+                                if (_lastAutoNavigatedPoiId != poi.Id)
+                                {
+                                    _lastAutoNavigatedPoiId = poi.Id;
+                                    await MainThread.InvokeOnMainThreadAsync(async () => 
+                                    {
+                                        // Điều hướng kèm theo flag autoplay=true
+                                        await Shell.Current.GoToAsync($"TourDetailPage?tourId={poi.Id}&autoplay=true");
+                                    });
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                await Task.Delay(5000, token); // Kiểm tra mỗi 5 giây
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Proximity monitoring error: {ex.Message}");
+        }
     }
 
     private async Task SelectBottomTabAsync(string? tab)
@@ -301,6 +351,8 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        _locationMonitoringCts?.Cancel();
+        _locationMonitoringCts?.Dispose();
         LocalizationManager.Instance.PropertyChanged -= OnLocalizationChanged;
     }
 

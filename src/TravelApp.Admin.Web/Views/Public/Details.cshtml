@@ -362,6 +362,7 @@
         const audio = document.getElementById('mainAudio');
         const progress = document.getElementById('audioProgress');
         const icon = document.getElementById('playIcon');
+        let hasAutoPlayed = false;
         let playTracked = false;
 
         // --- Speech Text Editing Variables ---
@@ -673,5 +674,62 @@
 
         // Initial setup for editor
         updateSpeechTextInput();
+
+        // --- Geofencing logic for Web ---
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // metres
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // meters
+        }
+
+        function checkProximityAndPlay() {
+            const targetLat = @Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            const targetLng = @Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            const radius = @Model.GeofenceRadiusMeters.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const isAutoRequested = urlParams.get('autoplay') === 'true';
+
+            // Tọa độ giả lập tương ứng với Explore
+            const uLat = 10.7793043;
+            const uLng = 106.6842107;
+            const dist = calculateDistance(uLat, uLng, targetLat, targetLng);
+
+            console.log(`[Details Sim] Distance=${dist.toFixed(1)}m, Threshold=${radius}m, Autoplay=${isAutoRequested}`);
+            
+            if (dist <= radius && !hasAutoPlayed && isAutoRequested) {
+                hasAutoPlayed = true;
+                console.log("User is at simulated location. Triggering audio...");
+                
+                setTimeout(() => {
+                    const playPromise = (audio.src && !audio.src.endsWith('/') && audio.src !== window.location.href) 
+                        ? audio.play() 
+                        : null;
+
+                    if (playPromise) {
+                        playPromise.then(() => {
+                            showTranscriptArea();
+                            icon.classList.replace('bi-play-fill', 'bi-pause-fill');
+                        }).catch(error => {
+                            console.warn("Autoplay blocked or failed. User interaction might be needed.", error);
+                        });
+                    } else {
+                        playTts();
+                    }
+                }, 1000);
+            }
+        }
+
+        // Chạy kiểm tra ngay khi trang load xong
+        window.addEventListener('DOMContentLoaded', checkProximityAndPlay);
     </script>
 }
