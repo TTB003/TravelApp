@@ -31,7 +31,7 @@ namespace TravelApp
             }
             
             // Sử dụng IP máy thật của bạn để các thiết bị vật lý có thể truy cập
-            var hostIp = "192.168.5.21"; 
+            var hostIp = "192.168.100.164"; 
             return $"http://{hostIp}:5001/";
 #else
             return "https://api.your-domain.com/";

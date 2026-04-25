@@ -161,6 +161,8 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
         OpenTourDetailCommand = new Command<PoiModel>(async item =>
         {
             if (item is null) return;
+            // Cập nhật ID cuối cùng ngay cả khi người dùng nhấn thủ công để tránh việc tự động nhảy trang
+            _lastAutoNavigatedPoiId = item.Id;
 
             // Allow anonymous users to view tour details. Only require authentication for owner-specific actions.
             await _bookmarkHistoryService.AddHistoryAsync(item);
@@ -188,23 +190,30 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
                     if (location != null)
                     {
                         var allItems = ForYouItems.Concat(EditorsChoiceItems).ToList();
-                        foreach (var poi in allItems)
+
+                        // 1. Tìm POI gần nhất tuyệt đối so với vị trí hiện tại của người dùng
+                        var closestPoiInfo = allItems
+                            .Select(poi => new { Poi = poi, Distance = location.CalculateDistance(poi.Latitude, poi.Longitude, DistanceUnits.Kilometers) * 1000 })
+                            .OrderBy(x => x.Distance)
+                            .FirstOrDefault();
+
+                        // 2. Nếu tìm thấy POI và nó nằm trong bán kính kích hoạt (100m)
+                        if (closestPoiInfo != null && closestPoiInfo.Distance <= 100)
                         {
-                            double distance = location.CalculateDistance(poi.Latitude, poi.Longitude, DistanceUnits.Kilometers) * 1000;
-                            
-                            // Ngưỡng 100m để tự động nhảy sang trang chi tiết
-                            if (distance <= 100) 
+                            var targetPoi = closestPoiInfo.Poi;
+
+                            // 3. Điều kiện để tự động điều hướng:
+                            // - POI gần nhất này phải khác với POI hệ thống vừa mới mở (tránh việc tự nhảy lại trang khi đang ở POI hiện tại)
+                            // - VÀ POI này chưa được phát trong vòng 20 phút qua (kiểm tra Cooldown)
+                            if (targetPoi.Id != _lastAutoNavigatedPoiId && !TourDetailViewModel.IsInCooldown(targetPoi.Id))
                             {
-                                if (_lastAutoNavigatedPoiId != poi.Id)
+                                _lastAutoNavigatedPoiId = targetPoi.Id;
+
+                                await MainThread.InvokeOnMainThreadAsync(async () => 
                                 {
-                                    _lastAutoNavigatedPoiId = poi.Id;
-                                    await MainThread.InvokeOnMainThreadAsync(async () => 
-                                    {
-                                        // Điều hướng kèm theo flag autoplay=true
-                                        await Shell.Current.GoToAsync($"TourDetailPage?tourId={poi.Id}&autoplay=true");
-                                    });
-                                    break;
-                                }
+                                    // Tự động mở trang và phát Audio cho POI mới chiếm ưu thế về khoảng cách
+                                    await Shell.Current.GoToAsync($"TourDetailPage?tourId={targetPoi.Id}&autoplay=true");
+                                });
                             }
                         }
                     }

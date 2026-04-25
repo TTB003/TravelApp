@@ -28,6 +28,15 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private bool _isBookmarked;
     private bool _canEditSpeechText;
     private bool _hasAutoPlayed;
+
+    // Lưu trữ lịch sử phát tự động để tránh phát lại quá gần nhau (Static để tồn tại suốt phiên làm việc của App)
+    public static readonly Dictionary<int, DateTime> AutoPlayHistory = new();
+    public static readonly TimeSpan AutoPlayCooldown = TimeSpan.FromMinutes(20); // Giới hạn 20 phút cho mỗi POI
+
+    public static bool IsInCooldown(int poiId) => 
+        AutoPlayHistory.TryGetValue(poiId, out var lastPlayed) && 
+        (DateTime.UtcNow - lastPlayed) < AutoPlayCooldown;
+
     private CancellationTokenSource? _locationTrackingCts;
     private int? _currentTourId;
     private bool _autoplayRequested;
@@ -393,6 +402,9 @@ public class TourDetailViewModel : INotifyPropertyChanged
             // 2. Nếu không có file -> Sử dụng TTS để đọc mobileDto.SpeechText bằng giọng mobileDto.SpeechTextLanguageCode.
             await _audioService.PlayPoiAudioAsync(mobileDto);
 
+            // Ghi nhận thời điểm phát vào lịch sử (cả manual và auto) để tính cooldown
+            AutoPlayHistory[mobileDto.Id] = DateTime.UtcNow;
+
             // Ghi nhận lượt nghe Audio về server (không đợi kết quả để tránh làm chậm UI)
             _ = Task.Run(async () => {
                 var config = MauiProgram.Services.GetRequiredService<AppConfig>();
@@ -560,6 +572,13 @@ public class TourDetailViewModel : INotifyPropertyChanged
     private async Task StartLocationTrackingAsync(bool immediateCheck = false)
     {
         if (_currentPoiDto == null || _hasAutoPlayed) return;
+
+        // Kiểm tra giới hạn (Cooldown): Nếu đã phát trong vòng 20 phút qua thì không tự động phát lại
+        if (IsInCooldown(_currentPoiDto.Id))
+        {
+            _hasAutoPlayed = true; 
+            return;
+        }
 
         StopLocationTracking();
         _locationTrackingCts = new CancellationTokenSource();
@@ -1029,14 +1048,14 @@ public class TourDetailViewModel : INotifyPropertyChanged
         try
         {
             var config = MauiProgram.Services.GetRequiredService<AppConfig>();
-            var apiBase = config.ApiBaseUrl?.TrimEnd('/') ?? "http://192.168.5.21:5001";
+            var apiBase = config.ApiBaseUrl?.TrimEnd('/') ?? "http://192.168.100.164:5001";
 
             // Tự động lấy Host từ apiBase nếu không cấu hình AdminHost để đồng bộ IP
             var apiUri = new Uri(apiBase);
             var hostIp = apiUri.Host;
 
             // Fix: Nếu host là 10.0.2.2 (Android Emulator), chuyển về IP thật để QR có thể quét được từ ngoài
-            if (hostIp == "10.0.2.2") hostIp = "192.168.5.21";
+            if (hostIp == "10.0.2.2") hostIp = "192.168.100.164";
 
             var host = config.AdminHost?.TrimEnd('/') ?? $"{apiUri.Scheme}://{hostIp}";
 

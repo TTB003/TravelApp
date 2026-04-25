@@ -196,7 +196,7 @@
                 </Border>
 
                 <Border x:Name="AudioStatusBorder"
-                        IsVisible="False"
+                        IsVisible="{Binding IsAudioPlayingBarVisible}"
                         StrokeThickness="0"
                         BackgroundColor="#1E8E68"
                         StrokeShape="RoundRectangle 14"
@@ -207,7 +207,8 @@
                     </Border.GestureRecognizers>
                     <VerticalStackLayout Spacing="2">
                         <Label x:Name="AudioPoiTitleLabel"
-                               Text=""
+                               Text="{Binding AudioPoiTitle}"
+                          
                                FontSize="13"
                                FontAttributes="Bold"
                                TextColor="White" />
