@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TravelApp.Admin.Web.Services;
@@ -23,6 +25,13 @@ public class PublicController : Controller
     public async Task<IActionResult> Explore(CancellationToken cancellationToken)
     {
         var currentLang = Request.Cookies["SelectedLanguage"] ?? "vi";
+        
+        // Lấy danh sách Tour để hiển thị ở trang Explore
+        ViewBag.Tours = await _apiClient.GetToursAsync(cancellationToken);
+
+        // Lấy dữ liệu Top 5 POI thực tế từ API Metrics (giống Admin)
+        ViewBag.TopPois = await _apiClient.GetPoiStatsAsync(cancellationToken);
+
         var pois = await _apiClient.GetPoisAsync(currentLang, cancellationToken);
         return View(pois);
     }
@@ -77,9 +86,51 @@ public class PublicController : Controller
         return View(tourPois);
     }
 
+    [HttpGet]
     public IActionResult Login()
     {
         return View(); // Trả về Views/Public/Login.cshtml
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Login(string UserName, string Password, bool RememberMe)
+    {
+        if (string.IsNullOrEmpty(UserName) || string.IsNullOrEmpty(Password)) return BadRequest();
+
+        // 1. GỌI API ĐỂ LẤY TOKEN THỰC TẾ
+        var accessToken = await _apiClient.LoginAsync(UserName, Password);
+        if (string.IsNullOrEmpty(accessToken))
+        {
+            return Unauthorized();
+        }
+
+        // Tạo danh tính cho người dùng Web
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name, UserName),
+            // Quan trọng: API thường nhìn vào ClaimTypes.NameIdentifier hoặc Name để xác định User
+            new(ClaimTypes.NameIdentifier, UserName), 
+            new(ClaimTypes.Email, UserName), 
+            new(ClaimTypes.Role, UserName.Contains("owner") ? "Owner" : "User")
+        };
+
+        var identity = new ClaimsIdentity(claims, "PublicAuthScheme");
+        var principal = new ClaimsPrincipal(identity);
+
+        // ĐĂNG NHẬP VÀO SCHEME RIÊNG CỦA WEB
+        await HttpContext.SignInAsync("PublicAuthScheme", principal, new AuthenticationProperties 
+        { 
+            IsPersistent = RememberMe 
+        });
+
+        // 2. TRẢ VỀ JSON CHỨA TOKEN THẬT
+        return Ok(new { token = accessToken });
+    }
+
+    public async Task<IActionResult> Logout()
+    {
+        await HttpContext.SignOutAsync("PublicAuthScheme");
+        return RedirectToAction("Explore");
     }
 
     public IActionResult Profile()

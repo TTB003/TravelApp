@@ -1,9 +1,15 @@
 @model IEnumerable<TravelApp.Application.Dtos.Pois.PoiMobileDto>
 @using TravelApp.Admin.Web.Helpers
+@using Microsoft.AspNetCore.Authentication
+@using TravelApp.Application.Dtos.Tours
+@using TravelApp.Admin.Web.Models
 @{
     Layout = "_MobileLayout";
     var currentLang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
-    var isLoggedIn = Context.Request.Cookies["AuthToken"] != null;
+    
+    var authResult = await Context.AuthenticateAsync("PublicAuthScheme");
+    var isLoggedIn = authResult.Succeeded;
+    var tours = ViewBag.Tours as IEnumerable<TourAdminDto>;
 }
 <style>
     .mobile-header {
@@ -136,6 +142,31 @@
         gap: 3px;
         margin: 4px 0;
     }
+
+    .trending-rank {
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        width: 24px;
+        height: 24px;
+        background: #FFC107;
+        color: #000;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 2;
+    }
+
+    .view-map-link {
+        color: #E31667;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .tour-badge {
+        background: rgba(227, 22, 103, 0.9); color: white;
+        font-size: 10px; font-weight: bold; padding: 4px 10px; border-radius: 12px;
+    }
 </style>
 
 <div class="mobile-header">
@@ -177,6 +208,14 @@
     </div>
 </div>
 
+<!-- Mobile Login Snackbar -->
+<div id="loginSnackbar" class="position-fixed top-0 start-50 translate-middle-x mt-3 px-4 py-2 bg-dark text-white rounded-pill shadow-lg" style="z-index: 10000; display: none; min-width: 250px;">
+    <div class="d-flex align-items-center gap-2 small">
+        <i class="bi bi-check-circle-fill text-success"></i>
+        <span>Chào mừng, <strong id="userNameDisplay"></strong>!</span>
+    </div>
+</div>
+
 <div class="content-scroll p-3">
     <div class="d-flex justify-content-between align-items-center">
         <h2 class="m-0 fw-bold fs-4">@WebLocalizationHelper.Get("AroundMe", currentLang)</h2>
@@ -190,66 +229,74 @@
     @if (Model != null)
     {
         <!-- 1. Trending Section (Địa điểm Hot) -->
-        <div class="section-label">@WebLocalizationHelper.Get("TrendingTitle", currentLang)</div>
+        <div class="section-label">
+            @WebLocalizationHelper.Get("TrendingTitle", currentLang)
+            <span class="ms-auto badge bg-light text-danger border p-1 fw-bold" style="font-size: 0.65rem;">TOP 5</span>
+        </div>
         <div class="poi-scroll-wrapper mb-2">
-            @foreach (var poi in Model.Take(5))
+            @{ 
+                var rank = 1;
+                var topStats = ViewBag.TopPois as IEnumerable<PoiStatDto> ?? Enumerable.Empty<PoiStatDto>();
+            }
+            @foreach (var stat in topStats.Take(5))
             {
-                <a href="@Url.Action("Details", "Public", new { id = poi.Id, area = "" })" class="trending-card shadow-sm">
-                    <img src="@poi.ImageUrl" class="trending-img" />
+                var poi = Model.FirstOrDefault(p => p.Id == stat.Id);
+                if (poi == null) continue;
+
+                <a href="@Url.Action("Details", "Public", new { id = poi.Id, area = "" })" class="trending-card shadow-sm position-relative">
+                    <div class="trending-rank">@rank</div>
+                    <img src="@(string.IsNullOrEmpty(poi.ImageUrl) ? "https://placehold.co/100x100?text=No+Image" : poi.ImageUrl)" class="trending-img" />
                     <div class="trending-info">
                         <div class="trending-title">@poi.Title</div>
-                        <div class="hot-badge"><span>🔥</span> @WebLocalizationHelper.Get("PopularNow", currentLang)</div>
+                        <div class="hot-badge"><span>🔥</span> @(stat.AudioPlays + stat.QrScans) @WebLocalizationHelper.Get("PopularNow", currentLang)</div>
                         <div class="trending-loc">@poi.Location</div>
                     </div>
                 </a>
+                rank++;
             }
         </div>
 
-        <!-- 2. Ho Chi Minh Food Tour -->
-        <div class="section-label">
-            <span>🍲</span> @WebLocalizationHelper.Get("HcmFoodTour", currentLang)
-            <span class="ms-auto badge bg-transparent text-warning p-0 fw-bold">@WebLocalizationHelper.Get("Featured", currentLang)</span>
-        </div>
-        <div class="poi-scroll-wrapper">
-            @foreach (var poi in Model.Where(p => p.Category?.Contains("Ho Chi Minh") == true || p.Category?.Contains("HCM") == true).DefaultIfEmpty(Model.FirstOrDefault()))
+        <!-- Hiển thị danh sách Tour động từ Database -->
+        @if (tours != null)
+        {
+            @foreach (var tour in tours.Where(t => t.IsPublished && t.Pois.Any()))
             {
-                @if(poi == null) continue;
-                <div class="poi-card shadow-sm" onclick="location.href='@Url.Action("Details", "Public", new { id = poi.Id, area = "" })'">
-                    <div class="poi-img-container" style="background-image: url('@poi.ImageUrl')"></div>
-                    <div class="poi-info">
-                        <div class="poi-title">@poi.Title</div>
-                        <div class="poi-subtitle">@poi.Subtitle</div>
-                        <div class="poi-meta">
-                            <div class="meta-item">⏱️ <span>~45 min</span></div>
-                            <div class="meta-item">🎯 <span>~2.5 km</span></div>
+                <div class="tour-group-container mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="section-label m-0">
+                            <i class="bi bi-map-fill text-pink me-2" style="color: #E31667"></i> @tour.Name
                         </div>
-                        <div class="poi-meta">
-                            <div class="meta-item">📍 <span class="text-truncate" style="max-width: 200px;">@poi.Location</span></div>
-                        </div>
+                        <a href="@Url.Action("TourMap", "Public", new { tourId = tour.Id, area = "" })" class="view-map-link">
+                            @WebLocalizationHelper.Get("MapView", currentLang) <i class="bi bi-chevron-right ms-1"></i>
+                        </a>
                     </div>
-                </div>
-            }
-        </div>
 
-        <!-- 3. Hanoi Food Tour -->
-        <div class="section-label">
-            <span>🍜</span> @WebLocalizationHelper.Get("HanoiFoodTour", currentLang)
-        </div>
-        <div class="poi-scroll-wrapper">
-            @foreach (var poi in Model.Where(p => p.Category?.Contains("Hanoi") == true))
-            {
-                <div class="poi-card" onclick="location.href='@Url.Action("Details", "Public", new { id = poi.Id, area = "" })'">
-                    <div class="poi-img-container" style="background-image: url('@poi.ImageUrl')"></div>
-                    <div class="poi-info">
-                        <div class="poi-title">@poi.Title</div>
-                        <div class="poi-subtitle">@poi.Subtitle</div>
-                        <div class="poi-meta">
-                            <i class="bi bi-geo-alt-fill text-danger"></i> <span>@poi.Location</span>
-                        </div>
+                    <div class="poi-scroll-wrapper">
+                        @foreach (var tourPoi in tour.Pois.OrderBy(p => p.SortOrder))
+                        {
+                            var poi = Model.FirstOrDefault(p => p.Id == tourPoi.PoiId);
+                            if (poi == null) continue;
+
+                            <a href="@Url.Action("Details", "Public", new { id = poi.Id, tourId = tour.Id, area = "" })" class="poi-card shadow-sm border-0">
+                                <div class="poi-img-container" style="background-image: url('@(string.IsNullOrEmpty(poi.ImageUrl) ? "https://placehold.co/400x300?text=Tour+Point" : poi.ImageUrl)')">
+                                    <div class="position-absolute bottom-0 start-0 m-2 tour-badge shadow-sm">
+                                        STEP @(tourPoi.SortOrder)
+                                    </div>
+                                </div>
+                                <div class="poi-info">
+                                    <div class="poi-title">@poi.Title</div>
+                                    <div class="poi-subtitle">@poi.Subtitle</div>
+                                    <div class="poi-meta">
+                                        <div class="meta-item"><i class="bi bi-clock"></i> <span>~15 min</span></div>
+                                        <div class="meta-item"><i class="bi bi-geo-alt"></i> <span class="text-truncate" style="max-width: 120px;">@poi.Location</span></div>
+                                    </div>
+                                </div>
+                            </a>
+                        }
                     </div>
                 </div>
             }
-        </div>
+        }
     }
 </div>
 
@@ -279,6 +326,17 @@
         // Khởi tạo Map
         var map;
         document.addEventListener('DOMContentLoaded', function() {
+            // Hiển thị thông báo đăng nhập cho Mobile Web
+            const publicUser = localStorage.getItem('public_login_success');
+            if (publicUser) {
+                const snackbar = document.getElementById('loginSnackbar');
+                document.getElementById('userNameDisplay').innerText = publicUser;
+                snackbar.style.display = 'block';
+                // Tự ẩn sau 4 giây
+                setTimeout(() => { snackbar.style.display = 'none'; }, 4000);
+                localStorage.removeItem('public_login_success');
+            }
+
             // Đặt vị trí mặc định tại SGU: khu vực Bà Huyện Thanh Quan, Q3
             map = L.map('poiMap', { zoomControl: false }).setView([10.7760, 106.6853], 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);

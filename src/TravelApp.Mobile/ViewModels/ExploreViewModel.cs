@@ -24,6 +24,7 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
 
     public ObservableCollection<PoiModel> ForYouItems { get; }
     public ObservableCollection<PoiModel> EditorsChoiceItems { get; }
+    public ObservableCollection<TourGroupModel> TourGroups { get; } = [];
 
     public bool IsMenuOpen
     {
@@ -154,7 +155,7 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
             IsMenuOpen = false;
             await Shell.Current.GoToAsync("BookmarksHistoryPage?tab=bookmarks");
         });
-        OpenTourMapRouteCommand = new Command(async () => await Shell.Current.GoToAsync("MapPage"));
+        OpenTourMapRouteCommand = new Command<int>(async (id) => await Shell.Current.GoToAsync($"TourMapRoutePage?tourId={id}"));
         OpenMapCommand = new Command(async () => await Shell.Current.GoToAsync("MapPage"));
         OpenQrScannerCommand = new Command(async () => await Shell.Current.GoToAsync("QrScannerPage"));
         SelectBottomTabCommand = new Command<string>(async tab => await SelectBottomTabAsync(tab));
@@ -281,26 +282,33 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
             var language = UserProfileService.PreferredLanguage;
             var routes = await _tourRouteCatalogService.GetAllRoutesAsync(language, cancellationToken);
 
+            // Chuẩn bị dữ liệu ở Background Thread trước
             var orderedRoutes = routes.OrderBy(x => x.Id).ToList();
             var forYouRoute = orderedRoutes.FirstOrDefault();
             var editorsChoiceRoute = orderedRoutes.Skip(1).FirstOrDefault();
 
             var forYou = BuildRouteItems(forYouRoute);
             var editors = BuildRouteItems(editorsChoiceRoute);
+            
+            var tourGroupsData = routes.Where(r => r.Waypoints.Any()).Select(route => new TourGroupModel
+            {
+                Id = route.Id,
+                Name = route.Name,
+                Items = new ObservableCollection<PoiModel>(route.Waypoints.Select((w, i) => MapPoi(w.Poi, route.Name, i + 1)))
+            }).ToList();
 
+            // Chỉ nhảy về MainThread để gán dữ liệu cuối cùng
             MainThread.BeginInvokeOnMainThread(() =>
             {
+                // Dùng cơ chế Clear/Add nhưng gộp lại để giảm số lần Notify
                 ForYouItems.Clear();
-                foreach (var item in forYou)
-                {
-                    ForYouItems.Add(item);
-                }
+                foreach (var item in forYou) ForYouItems.Add(item);
 
                 EditorsChoiceItems.Clear();
-                foreach (var item in editors)
-                {
-                    EditorsChoiceItems.Add(item);
-                }
+                foreach (var item in editors) EditorsChoiceItems.Add(item);
+
+                TourGroups.Clear();
+                foreach (var group in tourGroupsData) TourGroups.Add(group);
             });
         }
         catch
@@ -322,13 +330,13 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
         }
 
         return route.Waypoints
-            .Select(waypoint => MapPoi(waypoint.Poi, route.Name))
+            .Select((waypoint, index) => MapPoi(waypoint.Poi, route.Name, index + 1))
             .GroupBy(x => x.Id)
             .Select(g => g.First())
             .ToList();
     }
 
-    private static PoiModel MapPoi(PoiMobileDto dto, string? tourName)
+    private static PoiModel MapPoi(PoiMobileDto dto, string? tourName, int? step = null)
     {
         return new PoiModel
         {
@@ -340,12 +348,19 @@ public class ExploreViewModel : INotifyPropertyChanged, IDisposable
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
             Distance = dto.DistanceMeters.HasValue ? $"{dto.DistanceMeters.Value:F0} m" : string.Empty,
-            Duration = string.Empty,
             Description = dto.Description,
             Provider = string.Empty,
             Credit = string.IsNullOrWhiteSpace(tourName) ? string.Empty : tourName,
-            SpeechText = dto.SpeechText
+            SpeechText = dto.SpeechText,
+            Duration = step.HasValue ? $"STEP {step}" : string.Empty
         };
+    }
+
+    public class TourGroupModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public ObservableCollection<PoiModel> Items { get; set; }
     }
 
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)

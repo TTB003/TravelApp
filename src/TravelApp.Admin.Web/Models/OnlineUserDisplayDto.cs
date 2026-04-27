@@ -7,4 +7,5 @@ public class OnlineUserDisplayDto
 {
     public string Name { get; set; } = string.Empty;
     public string ClientType { get; set; } = string.Empty; // Ví dụ: "Mobile", "Web"
+    public string Action { get; set; } = string.Empty;
 }

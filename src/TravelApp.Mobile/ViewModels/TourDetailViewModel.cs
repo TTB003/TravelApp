@@ -407,9 +407,16 @@ public class TourDetailViewModel : INotifyPropertyChanged
 
             // Ghi nhận lượt nghe Audio về server (không đợi kết quả để tránh làm chậm UI)
             _ = Task.Run(async () => {
-                var config = MauiProgram.Services.GetRequiredService<AppConfig>();
-                var client = new HttpClient();
-                await client.PostAsync($"{config.ApiBaseUrl}api/pois/{mobileDto.Id}/audio-play", null);
+                try 
+                {
+                    // Sử dụng ApiClient đã có (thay vì new HttpClient) để giữ Header Authorization
+                    // Giả sử IPoiApiClient có phương thức TrackAudioPlayAsync
+                    await _poiApiClient.TrackAudioPlayAsync(mobileDto.Id);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Tracking Error: {ex.Message}");
+                }
             });
         }
         catch (Exception ex)

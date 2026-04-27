@@ -4,6 +4,17 @@
     ViewData["Title"] = "Admin Dashboard";
 }
 
+<!-- Toast thông báo đăng nhập -->
+<div id="adminLoginToast" class="toast align-items-center text-white bg-primary border-0 position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 10000">
+  <div class="d-flex">
+    <div class="toast-body">
+      <i class="bi bi-person-check-fill me-2"></i>
+      Chào mừng Quản trị viên: <strong id="adminNameDisplay"></strong> đã quay lại!
+    </div>
+    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+  </div>
+</div>
+
 <div class="dashboard-grid">
     <section class="section-header">
         <div>
@@ -101,12 +112,34 @@
                     {
                         @foreach (var user in Model.OnlineUsers)
                         {
-                            <div class="activity-item d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle @(user.ClientType == "Mobile" ? "bg-primary" : "bg-success")" style="width: 8px; height: 8px;" title="@user.ClientType"></div>
-                                    <span class="text-dark fw-medium">@user.Name</span>
+                            // Kiểm tra kỹ: Nếu tên bắt đầu bằng "Khách #" hoặc là "Anonymous" thì coi là khách
+                            var name = user.Name?.Trim() ?? "";
+                            bool isRegistered = !string.IsNullOrEmpty(name) && 
+                                              !name.StartsWith("Khách #", StringComparison.OrdinalIgnoreCase) &&
+                                              !name.Equals("Khách", StringComparison.OrdinalIgnoreCase) && 
+                                              !name.Equals("Anonymous", StringComparison.OrdinalIgnoreCase);
+                                              
+                            <div class="activity-item py-2 border-bottom">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle @(user.ClientType == "Mobile" ? "bg-primary" : "bg-success")" 
+                                             style="width: 10px; height: 10px; border-radius: 50%;" 
+                                             title="@user.ClientType"></div>
+                                        <span class="text-dark @(isRegistered ? "fw-bold" : "fw-medium")">
+                                            @(isRegistered ? name : "Khách vãng lai")
+                                        </span>
+                                    </div>
+                                    <span class="badge @(user.ClientType == "Mobile" ? "text-primary" : "text-success") bg-opacity-10" style="font-size: 0.65rem; border: 1px solid currentColor;">@user.Action.ToUpper()</span>
                                 </div>
-                                <span class="badge bg-light text-dark border" style="font-size: 0.7rem;">@user.ClientType</span>
+                                @if (isRegistered)
+                                {
+                                    <div class="ps-3 mt-1">
+                                        <small class="text-muted" style="font-size: 0.75rem;">
+                                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
+                                            @user.Action
+                                        </small>
+                                    </div>
+                                }
                             </div>
                         }
                     }
@@ -115,3 +148,18 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminName = localStorage.getItem('admin_login_success');
+            if (adminName) {
+                document.getElementById('adminNameDisplay').innerText = adminName;
+                const toastEl = document.getElementById('adminLoginToast');
+                const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+                toast.show();
+                localStorage.removeItem('admin_login_success');
+            }
+        });
+    </script>
+}

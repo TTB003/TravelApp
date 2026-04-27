@@ -10,4 +10,5 @@ public interface IPoiApiClient
     Task<PoiDto?> CreateAsync(UpsertPoiRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> UpdateAsync(int id, UpsertPoiRequestDto request, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task TrackAudioPlayAsync(int id);
 }

@@ -29,23 +29,27 @@ builder.Services.AddHttpClient<TravelApp.Admin.Web.Services.IPoiApiService, Trav
     };
 });
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+builder.Services.AddAuthentication(options => 
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
-        options.LoginPath = "/Public/Login"; // Chuyển hướng về trang Login mobile-web khi chưa đăng nhập
+        options.LoginPath = "/Auth/Login"; // Admin login
         options.LogoutPath = "/Auth/Logout";
-        options.AccessDeniedPath = "/Public/Login";
+        options.AccessDeniedPath = "/Auth/Login";
         options.Cookie.Name = "TravelApp.Admin.Auth";
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    })
+    .AddCookie("PublicAuthScheme", options =>
+    {
+        options.LoginPath = "/Public/Login"; // Public login
+        options.LogoutPath = "/Public/Logout";
+        options.Cookie.Name = "TravelApp.Public.Auth";
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
     });
-
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-});
 
 builder.Services.Configure<AdminCredentialsOptions>(builder.Configuration.GetSection("AdminCredentials"));
 

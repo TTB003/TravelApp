@@ -1,5 +1,6 @@
 @model TravelApp.Application.Dtos.Pois.PoiMobileDto
 @using TravelApp.Admin.Web.Helpers
+@using Microsoft.AspNetCore.Authentication
 @{
     Layout = "_MobileLayout";
     var lang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
@@ -19,8 +20,11 @@
     var apiUrl = ViewBag.ApiUrl ?? $"http://{hostIp}:5001"; 
     var quickChartBase = "https://quickchart.io/qr?text=";
     var qrImageUrl = quickChartBase + Uri.EscapeDataString(currentUrl) + "&size=250";
-    // Nhận diện Owner từ cả Identity System và Cookie thủ công của trang Public Login
-    bool isOwner = User.IsInRole("Owner") || Context.Request.Cookies["UserRole"] == "Owner";
+
+    // Chỉ kiểm tra quyền từ tài khoản Web (PublicAuthScheme)
+    var authResult = await Context.AuthenticateAsync("PublicAuthScheme");
+    bool isOwner = authResult.Principal?.HasClaim(System.Security.Claims.ClaimTypes.Role, "Owner") == true;
+    var jwtToken = authResult.Properties?.GetTokenValue("access_token"); // Lấy token nếu có lưu
 
     // Hàm phụ trợ để hiển thị tên ngôn ngữ trên Server-side
     string GetLanguageDisplayText(string code)
@@ -490,7 +494,20 @@
         function trackAudioPlay() {
             if (!playTracked) {
                 const apiUrlBase = '@(ViewBag.ApiUrl ?? $"http://{request.Host.Host}:5001")'.replace(/\/$/, '');
-                fetch(apiUrlBase + '/api/pois/' + '@Model.Id' + '/audio-play', { method: 'POST' })
+                const headers = { 
+                    'Content-Type': 'application/json'
+                };
+                
+                // Lấy Token từ localStorage (do trang Login lưu vào khi dùng AJAX)
+                // Hoặc lấy từ jwtToken (nếu Server-side bắt được access_token từ cookie)
+                const token = localStorage.getItem('user_token') || 
+                             (typeof '@jwtToken' !== 'undefined' ? '@jwtToken' : '');
+                
+                if (token && token.trim().length > 10) {
+                    headers['Authorization'] = 'Bearer ' + token;
+                }
+
+                fetch(apiUrlBase + '/api/pois/' + '@Model.Id' + '/audio-play', { method: 'POST', headers: headers })
                     .then(() => playTracked = true)
                     .catch(err => console.warn('Audio tracking failed', err));
             }

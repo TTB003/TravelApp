@@ -233,7 +233,7 @@
                         <DataTemplate>
                             <Border WidthRequest="220"
                                     Padding="10"
-                                    StrokeShape="RoundRectangle 16"
+                                    StrokeShape="RoundRectangle 12"
                                     BackgroundColor="{AppThemeBinding Light=#F8F9FB, Dark=#1E232E}"
                                     StrokeThickness="0">
                                 <Border.GestureRecognizers>
@@ -267,164 +267,72 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center" Margin="0,12,0,8">
-                    <Label Text="{Binding HcmFoodTourText, Source={x:Static services:LocalizationManager.Instance}}" Style="{StaticResource SectionTitleStyle}" />
-                    <Label Grid.Column="1"
-                           Text="{Binding FeaturedText, Source={x:Static services:LocalizationManager.Instance}}"
-                           FontSize="12"
-                           FontAttributes="Bold"
-                           TextColor="#FF9800"
-                           VerticalTextAlignment="Center"
-                           Padding="8,4" />
-                </Grid>
-
-                <CollectionView x:Name="ForYouCollection" ItemsSource="{Binding ForYouItems}" HeightRequest="290" SelectionMode="None">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="12" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
+                <!-- Dynamic Tour Sections (Duyệt qua danh sách Tour thực tế) -->
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding TourGroups}" Spacing="0">
+                    <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                            <Border WidthRequest="{OnIdiom Phone=312, Tablet=360, Desktop=400}"
-                                    Stroke="{AppThemeBinding Light={StaticResource CardBorder}, Dark={StaticResource DarkCardBorder}}"
-                                    StrokeThickness="1"
-                                    StrokeShape="RoundRectangle 24"
-                                    BackgroundColor="{AppThemeBinding Light=White, Dark={StaticResource DarkCardBackground}}"
-                                    Margin="0,2,0,2">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenTourDetailCommand}"
-                                                          CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Grid RowDefinitions="165,*">
-                                    <Grid Grid.Row="0">
-                                        <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
+                            <VerticalStackLayout Spacing="0">
+                                <!-- Header của từng Tour -->
+                                <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center" Margin="0,12,0,5">
+                                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                        <Label Text="🗺️" FontSize="18" VerticalOptions="Center"/>
+                                        <Label Text="{Binding Name}" Style="{StaticResource SectionTitleStyle}" />
+                                    </HorizontalStackLayout>
 
-                                        <Border Margin="0,12,12,0"
-                                                HorizontalOptions="End"
-                                                VerticalOptions="Start"
-                                                StrokeThickness="0"
-                                                BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#2B3243}"
-                                                StrokeShape="RoundRectangle 20"
-                                                WidthRequest="40"
-                                                HeightRequest="40">
-                                            <Path Data="M12,4 L20,12 L16.8,12 L16.8,20 L7.2,20 L7.2,12 L4,12 Z"
-                                                  Fill="#C2185B"
-                                                  WidthRequest="14"
-                                                  HeightRequest="14"
-                                                  HorizontalOptions="Center"
-                                                  VerticalOptions="Center"
-                                                  Aspect="Uniform" />
-                                        </Border>
-
-                                        <Border Margin="12,0,0,12"
-                                                VerticalOptions="End"
-                                                HorizontalOptions="Start"
-                                                StrokeThickness="0"
-                                                BackgroundColor="{AppThemeBinding Light=#F8FAFF, Dark=#242C3B}"
-                                                StrokeShape="RoundRectangle 16"
-                                                Padding="12,6">
-                                            <Label Text="~ m  |  ~ min"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light=#7A7A84, Dark=#C0C6D4}" />
-                                        </Border>
-                                    </Grid>
-
-                                    <Grid Grid.Row="1"
-                                          Padding="14,10,14,12"
-                                          RowDefinitions="Auto,Auto,Auto,Auto"
-                                          ColumnDefinitions="*">
-                                        <Label Text="{Binding Title}" Style="{StaticResource CardTitleStyle}" />
-                                        <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource CardSubTitleStyle}" />
-
-                                        <!-- Duration + Distance -->
-                                        <HorizontalStackLayout Grid.Row="2" Spacing="12" VerticalOptions="Center" Margin="0,6,0,0">
-                                            <HorizontalStackLayout Spacing="4">
-                                                <Label Text="⏱️" FontSize="12" VerticalTextAlignment="Center" />
-                                                <Label Text="{Binding Duration}" FontSize="12" TextColor="{AppThemeBinding Light=#6E7380, Dark=#C5CBD9}" VerticalTextAlignment="Center" />
-                                            </HorizontalStackLayout>
-                                            <HorizontalStackLayout Spacing="4">
-                                                <Label Text="🎯" FontSize="12" VerticalTextAlignment="Center" />
-                                                <Label Text="{Binding Distance}" FontSize="12" TextColor="{AppThemeBinding Light=#6E7380, Dark=#C5CBD9}" VerticalTextAlignment="Center" />
-                                            </HorizontalStackLayout>
-                                        </HorizontalStackLayout>
-
-                                        <!-- Location -->
-                                        <HorizontalStackLayout Grid.Row="3" Spacing="5" Margin="0,6,0,0">
-                                            <Label Text="📍" FontSize="12" VerticalTextAlignment="Start" />
-                                            <Label Text="{Binding Location}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SecondaryText}, Dark={StaticResource DarkSecondaryText}}" LineBreakMode="TailTruncation" />
-                                        </HorizontalStackLayout>
-                                    </Grid>
+                                    <Label Grid.Column="1" 
+                                           Text="{Binding BindingContext.MapViewText, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                           FontSize="13" FontAttributes="Bold" TextColor="#E31667"
+                                           VerticalTextAlignment="Center" Padding="0,4">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding BindingContext.OpenTourMapRouteCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" 
+                                                                  CommandParameter="{Binding Id}" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
                                 </Grid>
-                            </Border>
+
+                                <!-- Danh sách POI cuộn ngang bên trong Tour -->
+                                <CollectionView ItemsSource="{Binding Items}" HeightRequest="290" SelectionMode="None">
+                                    <CollectionView.ItemsLayout>
+                                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="12" />
+                                    </CollectionView.ItemsLayout>
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border WidthRequest="312" StrokeThickness="1" StrokeShape="RoundRectangle 24" Margin="0,2,0,2"
+                                                    Stroke="{AppThemeBinding Light={StaticResource CardBorder}, Dark={StaticResource DarkCardBorder}}"
+                                                    BackgroundColor="{AppThemeBinding Light=White, Dark={StaticResource DarkCardBackground}}">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenTourDetailCommand}"
+                                                                          CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid RowDefinitions="165,*">
+                                                    <Grid Grid.Row="0">
+                                                        <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
+                                                        <!-- Badge STEP (lấy từ property Duration đã gán ở ViewModel) -->
+                                                        <Border Margin="12" VerticalOptions="End" HorizontalOptions="Start" StrokeThickness="0" BackgroundColor="#E31667" StrokeShape="RoundRectangle 12" Padding="10,4">
+                                                            <Label Text="{Binding Duration}" FontSize="10" FontAttributes="Bold" TextColor="White" />
+                                                        </Border>
+                                                    </Grid>
+                                                    <Grid Grid.Row="1" Padding="14,10,14,12" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                        <Label Text="{Binding Title}" Style="{StaticResource CardTitleStyle}" />
+                                                        <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource CardSubTitleStyle}" />
+                                                        <HorizontalStackLayout Grid.Row="2" Spacing="4" Margin="0,6,0,0">
+                                                            <Label Text="🎯" FontSize="12" VerticalTextAlignment="Center" />
+                                                            <Label Text="{Binding Distance}" FontSize="12" TextColor="{AppThemeBinding Light=#6E7380, Dark=#C5CBD9}" />
+                                                        </HorizontalStackLayout>
+                                                        <HorizontalStackLayout Grid.Row="3" Spacing="5" Margin="0,6,0,0">
+                                                            <Label Text="📍" FontSize="12" />
+                                                            <Label Text="{Binding Location}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SecondaryText}, Dark={StaticResource DarkSecondaryText}}" LineBreakMode="TailTruncation" />
+                                                        </HorizontalStackLayout>
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </VerticalStackLayout>
                         </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-
-                <Label Text="{Binding HanoiFoodTourText, Source={x:Static services:LocalizationManager.Instance}}" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,8" />
-
-                <CollectionView x:Name="EditorsChoiceCollection" ItemsSource="{Binding EditorsChoiceItems}" HeightRequest="260" SelectionMode="None">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="12" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Border WidthRequest="{OnIdiom Phone=312, Tablet=360, Desktop=400}"
-                                    Stroke="{AppThemeBinding Light={StaticResource CardBorder}, Dark={StaticResource DarkCardBorder}}"
-                                    StrokeThickness="1"
-                                    StrokeShape="RoundRectangle 24"
-                                    BackgroundColor="{AppThemeBinding Light=White, Dark={StaticResource DarkCardBackground}}"
-                                    Margin="0,2,0,2">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenTourDetailCommand}"
-                                                          CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Grid RowDefinitions="165,*">
-                                    <Grid Grid.Row="0">
-                                        <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
-                                        <Border Margin="0,12,12,0"
-                                                HorizontalOptions="End"
-                                                VerticalOptions="Start"
-                                                StrokeThickness="0"
-                                                BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#2B3243}"
-                                                StrokeShape="RoundRectangle 20"
-                                                WidthRequest="40"
-                                                HeightRequest="40">
-                                            <Path Data="M12,4 L20,12 L16.8,12 L16.8,20 L7.2,20 L7.2,12 L4,12 Z"
-                                                  Fill="#C2185B"
-                                                  WidthRequest="14"
-                                                  HeightRequest="14"
-                                                  HorizontalOptions="Center"
-                                                  VerticalOptions="Center"
-                                                  Aspect="Uniform" />
-                                        </Border>
-                                    </Grid>
-
-                                    <Grid Grid.Row="1" Padding="14,10,14,12" RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*">
-                                        <Label Text="{Binding Title}" Style="{StaticResource CardTitleStyle}" />
-                                        <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource CardSubTitleStyle}" />
-
-                                        <!-- Duration + Distance -->
-                                        <HorizontalStackLayout Grid.Row="2" Spacing="12" VerticalOptions="Center" Margin="0,6,0,0">
-                                            <HorizontalStackLayout Spacing="4">
-                                                <Label Text="⏱️" FontSize="12" VerticalTextAlignment="Center" />
-                                                <Label Text="{Binding Duration}" FontSize="12" TextColor="{AppThemeBinding Light=#6E7380, Dark=#C5CBD9}" VerticalTextAlignment="Center" />
-                                            </HorizontalStackLayout>
-                                            <HorizontalStackLayout Spacing="4">
-                                                <Label Text="🎯" FontSize="12" VerticalTextAlignment="Center" />
-                                                <Label Text="{Binding Distance}" FontSize="12" TextColor="{AppThemeBinding Light=#6E7380, Dark=#C5CBD9}" VerticalTextAlignment="Center" />
-                                            </HorizontalStackLayout>
-                                        </HorizontalStackLayout>
-
-                                        <!-- Location -->
-                                        <HorizontalStackLayout Grid.Row="3" Spacing="5" Margin="0,6,0,0">
-                                            <Label Text="📍" FontSize="12" VerticalTextAlignment="Start" />
-                                            <Label Text="{Binding Location}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SecondaryText}, Dark={StaticResource DarkSecondaryText}}" LineBreakMode="TailTruncation" />
-                                        </HorizontalStackLayout>
-                                    </Grid>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
 
                 <BoxView HeightRequest="6" Color="Transparent" />
             </VerticalStackLayout>

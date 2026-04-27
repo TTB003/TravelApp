@@ -68,4 +68,9 @@ public class PoiApiClient : ApiClientBase, IPoiApiClient
         var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Delete, $"api/pois/{id}"), authorized: true, cancellationToken);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task TrackAudioPlayAsync(int id)
+    {
+        await SendAsync(() => new HttpRequestMessage(HttpMethod.Post, $"api/pois/{id}/audio-play"), authorized: true);
+    }
 }

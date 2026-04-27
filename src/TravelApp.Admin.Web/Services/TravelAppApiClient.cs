@@ -386,4 +386,20 @@ public sealed class TravelAppApiClient : ITravelAppApiClient
            ?? new List<OnlineUserDisplayDto>();
 }
 
+    public async Task<string?> LoginAsync(string email, string password)
+    {
+        try
+        {
+            // Gọi tới endpoint Login của API (thường là api/auth/login)
+            var response = await _httpClient.PostAsJsonAsync("api/auth/login", new { Email = email, Password = password });
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                // Lấy access_token hoặc token từ JSON trả về
+                return result.GetProperty("accessToken").GetString();
+            }
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Login API failed"); }
+        return null;
+    }
 }

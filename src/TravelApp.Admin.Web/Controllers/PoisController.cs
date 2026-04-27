@@ -22,6 +22,7 @@ public class PoisController : Controller
     [HttpGet("admin")]
     public IActionResult AdminEntry()
     {
+        // Chỉ kiểm tra đăng nhập của Admin (Scheme mặc định)
         if (User.Identity?.IsAuthenticated == true)
         {
             return RedirectToAction(nameof(Index));

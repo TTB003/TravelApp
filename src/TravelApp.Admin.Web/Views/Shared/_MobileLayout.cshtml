@@ -1,9 +1,21 @@
 @using TravelApp.Admin.Web.Helpers
+@using Microsoft.AspNetCore.Authentication
 <!DOCTYPE html>
 <html lang="vi">
 @{
     var currentLang = Context.Request.Cookies["SelectedLanguage"] ?? "vi";
-    var isLoggedIn = User.Identity?.IsAuthenticated ?? false;
+    
+    // Lấy thông tin xác thực từ scheme Public
+    var authResult = await Context.AuthenticateAsync("PublicAuthScheme");
+    bool isLoggedIn = authResult.Succeeded;
+    
+    // Lấy thông tin từ Identity của PublicAuthScheme để đảm bảo không lấy lộn Admin
+    var userName = authResult.Principal?.Identity?.Name;
+    if (string.IsNullOrEmpty(userName)) {
+        userName = authResult.Principal?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name)?.Value ?? "Khách";
+    }
+
+    var userEmail = authResult.Principal?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
 }
 <head>
     <meta charset="utf-8" />
@@ -61,7 +73,8 @@
             z-index: 1050;
             transition: left 0.3s ease;
             color: white;
-            padding: 40px 20px;
+            padding: 30px 24px;
+            overflow-y: auto;
         }
 
         .mobile-drawer.open { left: 0; }
@@ -79,11 +92,17 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            padding: 15px 0;
+            padding: 12px 0;
             font-size: 1.1rem;
             cursor: pointer;
             text-decoration: none;
             color: white;
+            font-weight: 500;
+        }
+
+        .drawer-item:hover {
+            color: white;
+            opacity: 0.8;
         }
 
         .drawer-icon {
@@ -93,6 +112,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .drawer-close-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .drawer-user-info {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
         /* Bottom Nav giống 2.png, 5.png */
@@ -139,28 +170,44 @@
         @Html.AntiForgeryToken()
         <div class="drawer-overlay" id="drawerOverlay"></div>
         <div class="mobile-drawer" id="mobileDrawer">
-            <div class="text-center mb-5">
-                <button class="btn border-0 text-white fs-3" onclick="toggleDrawer()"><i class="bi bi-x-lg"></i></button>
+            <!-- Nút đóng dạng hình tròn lớn nằm giữa giống 1.png -->
+            <div class="drawer-close-container">
+                <div class="drawer-icon" style="width: 56px; height: 56px; border-radius: 28px; cursor: pointer;" onclick="toggleDrawer()">
+                    <i class="bi bi-x-lg fs-4"></i>
+                </div>
             </div>
+
+            
+
+            <div class="drawer-menu-items">
             @if (!isLoggedIn)
             {
-                <a href="/Public/Login" class="drawer-item"><div class="drawer-icon"><i class="bi bi-box-arrow-in-right"></i></div> @WebLocalizationHelper.Get("Login", currentLang)</a>
+                <a href="/Public/Login" class="drawer-item">
+                    <div class="drawer-icon"><i class="bi bi-arrow-right-short fs-3"></i></div> 
+                    @WebLocalizationHelper.Get("Login", currentLang)
+                </a>
             }
-            else
-            {
-                <a href="javascript:logout()" class="drawer-item"><div class="drawer-icon"><i class="bi bi-box-arrow-right"></i></div> @WebLocalizationHelper.Get("Logout", currentLang)</a>
-                <a href="@Url.Action("Profile", "Public", new { area = "" })" class="drawer-item"><div class="drawer-icon"><i class="bi bi-person-circle"></i></div> @WebLocalizationHelper.Get("Profile", currentLang)</a>
-                
-                @if (User.IsInRole("Admin") || User.IsInRole("Owner") || User.IsInRole("SuperAdmin"))
-                {
-                    <a href="@Url.Action("Index", "Pois")" class="drawer-item"><div class="drawer-icon"><i class="bi bi-shield-lock"></i></div> @WebLocalizationHelper.Get("AdminDashboard", currentLang)</a>
-                }
-            }
-            <hr class="bg-white opacity-25">
+
+            <a href="@Url.Action("Profile", "Public", new { area = "" })" class="drawer-item">
+                <div class="drawer-icon"><i class="bi bi-person-circle"></i></div> 
+                @(isLoggedIn ? $"{WebLocalizationHelper.Get("Hi", currentLang)} {userName}" : WebLocalizationHelper.Get("Hi", currentLang))
+            </a>
+            
+            <div style="height: 1px; background: rgba(255,255,255,0.15); margin: 15px 0;"></div>
+
             <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-music-note-beamed"></i></div> @WebLocalizationHelper.Get("Purchases", currentLang)</a>
             <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-clock-history"></i></div> @WebLocalizationHelper.Get("History", currentLang)</a>
             <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-bookmark"></i></div> @WebLocalizationHelper.Get("Bookmarks", currentLang)</a>
             <a href="#" class="drawer-item"><div class="drawer-icon"><i class="bi bi-terminal"></i></div> @WebLocalizationHelper.Get("Debug", currentLang)</a>
+
+            @if (isLoggedIn)
+            {
+                <a href="javascript:logout()" class="drawer-item mt-2">
+                    <div class="drawer-icon"><i class="bi bi-box-arrow-right"></i></div> 
+                    @WebLocalizationHelper.Get("Logout", currentLang)
+                </a>
+            }
+        </div>
         </div>
 
         @RenderBody()
@@ -175,21 +222,11 @@
         document.getElementById('drawerOverlay').onclick = toggleDrawer;
 
         async function logout() {
-            // Xóa cookies thủ công
-            document.cookie = "AuthToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            document.cookie = "UserRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            localStorage.removeItem('public_login_success');
             
-            // Gọi server để xóa session/cookie auth chính thức
-            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-            try {
-                await fetch('/Auth/Logout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ '__RequestVerificationToken': token })
-                });
-            } catch (e) { console.error("Logout error:", e); }
-            
-            location.href = '/';
+            // Chuyển hướng đến action Logout trên server để thực hiện SignOutAsync
+            // Điều này đảm bảo cookie HttpOnly được xóa sạch sẽ
+            window.location.href = '/Public/Logout';
         }
     </script>
 </body>

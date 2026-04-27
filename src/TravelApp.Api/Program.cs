@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,7 +66,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtSecret)),
-            ClockSkew = TimeSpan.FromMinutes(1)
+            ClockSkew = TimeSpan.FromMinutes(1),
+            // Đảm bảo mapping đúng các claim chuẩn từ JWT vào Identity
+            NameClaimType = ClaimTypes.Name,
+            RoleClaimType = ClaimTypes.Role
         };
     });
 
@@ -154,7 +158,7 @@ app.MapGet("/api/admin/poi-stats", async (TravelAppDbContext dbContext) =>
 // Endpoint lấy danh sách người dùng thực tế đang hoạt động (trong 15 phút qua)
 app.MapGet("/api/admin/active-users", async (TravelAppDbContext dbContext) =>
 {
-    var fifteenMinsAgo = DateTimeOffset.UtcNow.AddMinutes(-15);
+    var TimeAgo = DateTimeOffset.UtcNow.AddMinutes(-2);
 
     // Sử dụng l.Id để tạo tên khách duy nhất cho mỗi lượt truy cập (tránh trùng lặp khi test cùng mạng LAN)
     var activeUsers = await dbContext.Database
@@ -165,13 +169,17 @@ app.MapGet("/api/admin/active-users", async (TravelAppDbContext dbContext) =>
                     ELSE 'Khách #' + CAST(l.Id AS NVARCHAR) 
                 END AS Name,
                 CASE 
-                    WHEN l.UserId IS NOT NULL THEN 'Mobile (Auth)'
-                    ELSE l.ActivityType
-                END AS ClientType
+                    WHEN l.ActivityType LIKE 'Mobile%' OR u.Email IS NOT NULL THEN 'Mobile'
+                    ELSE 'Web'
+                END AS ClientType,
+                l.ActivityType AS Action
             FROM ActivityLogs l
-            LEFT JOIN Users u ON l.UserId = CAST(u.Id AS NVARCHAR(450))
+            LEFT JOIN Users u ON (
+                LOWER(l.UserId) = LOWER(CAST(u.Id AS NVARCHAR(450))) OR 
+                LOWER(l.UserId) = LOWER(u.Email)
+            )
             WHERE l.LastSeenAtUtc > {0}
-            ORDER BY l.LastSeenAtUtc DESC", fifteenMinsAgo)
+            ORDER BY l.LastSeenAtUtc DESC", TimeAgo)
         .ToListAsync();
 
     return Results.Ok(activeUsers);
@@ -186,8 +194,18 @@ async Task LogActivity(TravelAppDbContext db, string? userId, string ip, string 
 }
 
 // Endpoint ghi nhận lượt quét QR
-app.MapPost("/api/pois/{id}/qr-scan", async (int id, TravelAppDbContext dbContext) =>
+app.MapPost("/api/pois/{id}/qr-scan", async (int id, ClaimsPrincipal user, HttpContext context, TravelAppDbContext dbContext) =>
 {
+    // Lấy UserId từ Token đã đăng nhập (nếu có)
+    // Thử các loại claim phổ biến nhất
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+              ?? user.FindFirst("sub")?.Value 
+              ?? user.Identity?.Name;
+    
+    var ip = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+    
+    await LogActivity(dbContext, userId, ip, "Mobile (Scan)");
+
     // Cập nhật trực tiếp vào DB bằng SQL để tránh lỗi Property Not Found của EF
     var affected = await dbContext.Database.ExecuteSqlRawAsync(
         "UPDATE POI SET QrScanCount = ISNULL(QrScanCount, 0) + 1 WHERE Id = {0}", id);
@@ -211,9 +229,16 @@ app.MapGet("/api/pois/{id}/qr-track", async (int id, string redirectUrl, TravelA
 });
 
 // Endpoint ghi nhận lượt nghe Audio
-app.MapPost("/api/pois/{id}/audio-play", async (int id, TravelAppDbContext dbContext) =>
+app.MapPost("/api/pois/{id}/audio-play", async (int id, ClaimsPrincipal user, HttpContext context, TravelAppDbContext dbContext) =>
 {
-    await LogActivity(dbContext, null, "127.0.0.1", "Audio Player");
+    // Lấy UserId từ Token (nếu người dùng đã đăng nhập trên Mobile)
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+              ?? user.FindFirst("sub")?.Value 
+              ?? user.Identity?.Name;
+    
+    var ip = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+    await LogActivity(dbContext, userId, ip, "Audio Player");
 
     // Cập nhật lượt nghe bằng SQL
     var affected = await dbContext.Database.ExecuteSqlRawAsync(
@@ -622,4 +647,4 @@ static async Task EnsureActivityLogsTableAsync(TravelAppDbContext dbContext)
 app.Run();
 
 public record PoiStatResult(int Id, string Title, string? Category, int QrScans, int AudioPlays);
-public record ActiveUserResult(string Name, string ClientType);
+public record ActiveUserResult(string Name, string ClientType, string Action);

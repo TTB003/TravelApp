@@ -22,6 +22,7 @@ public partial class ExplorePage : ContentPage
     private Microsoft.Maui.Controls.Maps.Map? _discoverMap;
     private IDispatcherTimer? _audioStatusTimer;
     private bool _explorePinsAttached;
+    private bool _isRenderingPins;
     private int? _selectedExplorePoiId;
     private LocationSample? _currentLocation;
 
@@ -161,7 +162,15 @@ public partial class ExplorePage : ContentPage
 
     private void OnExplorePoisChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        _ = MainThread.InvokeOnMainThreadAsync(RenderExplorePins);
+        if (_isRenderingPins) return;
+        _isRenderingPins = true;
+
+        // Đợi 200ms để đợi các thay đổi khác trong cùng batch rồi mới vẽ lại map
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(200), () =>
+        {
+            RenderExplorePins();
+            _isRenderingPins = false;
+        });
     }
 
     private void RenderExplorePins()
@@ -212,8 +221,6 @@ public partial class ExplorePage : ContentPage
 
             points.Add(pin.Location);
 
-            points.Add(pin.Location);
-
             pin.MarkerClicked += async (_, args) =>
             {
                 _selectedExplorePoiId = poi.Id;
@@ -256,8 +263,18 @@ public partial class ExplorePage : ContentPage
 
     private void OnLocationUpdated(LocationSample sample)
     {
+        // Chỉ cập nhật nếu vị trí mới cách vị trí cũ trên 10m để tránh lag
+        if (_currentLocation != null)
+        {
+            var distance = Location.CalculateDistance(
+                _currentLocation.Latitude, _currentLocation.Longitude,
+                sample.Latitude, sample.Longitude, DistanceUnits.Kilometers) * 1000;
+
+            if (distance < 10) return; 
+        }
+
         _currentLocation = sample;
-        MainThread.BeginInvokeOnMainThread(RenderExplorePins);
+        _ = MainThread.InvokeOnMainThreadAsync(RenderExplorePins);
     }
 
     private Task AnimateToPoiAsync(double latitude, double longitude)

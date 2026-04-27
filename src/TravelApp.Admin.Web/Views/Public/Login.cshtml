@@ -97,9 +97,9 @@
             return;
         }
 
-        // Thực hiện Login thật lên Server (AuthController) để cấp Cookie Authentication
+        // Thực hiện Login lên PublicController để cấp PublicAuthScheme cookie
         try {
-            const response = await fetch('/Auth/Login', {
+            const response = await fetch('/Public/Login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
@@ -109,10 +109,23 @@
                     '__RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
                 })
             });
-
+            
             if (response.ok) {
-                // Vẫn giữ AuthToken để tương thích với một số logic cũ nếu cần
-                document.cookie = "AuthToken=authenticated; path=/";
+                // Kiểm tra xem phản hồi có phải là JSON (chứa Token) hay không
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await response.json();
+                    if (data && data.token) {
+                        localStorage.setItem('user_token', data.token);
+                        console.log("Token saved to localStorage");
+                    }
+                } else {
+                    // Nếu không có JSON, có thể Controller đang trả về Redirect. 
+                    // Bạn nên đảm bảo PublicController.Login trả về Json(new { token = ... }) khi gọi qua AJAX.
+                    console.warn("Login response was not JSON. Token might not be saved.");
+                }
+
+                localStorage.setItem('public_login_success', email);
                 window.location.href = '/Public/Explore';
             } else {
                 alert("@WebLocalizationHelper.Get("LoginFailed", lang)");

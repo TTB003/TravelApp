@@ -19,17 +19,20 @@ public class AdminController : Controller
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
+        var currentLang = Request.Cookies["SelectedLanguage"] ?? "vi";
+        ViewBag.CurrentLanguage = currentLang;
+
         // 1. Lấy thông tin thống kê tổng quát (Số user, Tổng lượt nghe, Tổng lượt quét)
         // Giả sử API trả về object: { PoiCount, UserCount, PublishedTourCount, QrCount }
         var stats = await _apiClient.GetDashboardStatsAsync(cancellationToken);
-        
+
         // 2. Lấy danh sách Top POI (đã được API sắp xếp theo độ hot)
         // Endpoint này trả về List<PoiStatResult> (Id, Title, Category, QrScans, AudioPlays)
         var topPois = await _apiClient.GetPoiStatsAsync(cancellationToken);
 
         // Lấy danh sách người dùng trực tuyến thực tế từ API (Anonymous & Auth)
         // Giả sử bạn đã thêm phương thức GetActiveUsersAsync vào ITravelAppApiClient
-        var onlineUsers = await _apiClient.GetActiveUsersAsync(cancellationToken);
+        var onlineUsers = await _apiClient.GetActiveUsersAsync(cancellationToken) ?? new List<OnlineUserDisplayDto>();
 
         var vm = new AdminDashboardViewModel
         {
@@ -42,8 +45,9 @@ public class AdminController : Controller
             // QrCount đóng vai trò là "Tổng lượt quét QR"
             QrCount = stats?.QrCount ?? 0,
             ApiBaseUrl = _configuration["TravelAppApi:BaseUrl"] ?? string.Empty,
-
-            OnlineUserCount = onlineUsers.Count*2, // Tổng số người dùng trực tuyến thực tế
+// truy vấn nè e iu
+            // Tính toán tổng số người dùng đang truy cập (bao gồm cả khách và thành viên)
+            OnlineUserCount = onlineUsers.Count, 
             OnlineUsers = onlineUsers, // Danh sách chi tiết người dùng trực tuyến
 
             RecentPois = topPois.Select(x => new DashboardPoiSummary
